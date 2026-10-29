@@ -1,0 +1,59 @@
+@CargoFlow_HostAddress = http://localhost:5226
+
+GET {{CargoFlow_HostAddress}}/api/weight-types/
+Accept: application/json
+
+###
+
+GET {{CargoFlow_HostAddress}}/api/weight-types/7
+Accept: application/json
+###
+
+POST {{CargoFlow_HostAddress}}/api/customers
+Content-Type: application/json
+
+{
+  "name": "Mohammed Al-Sayed",
+  "national_id": "3698521475"
+}
+###
+
+GET {{CargoFlow_HostAddress}}/api/customers/5
+Accept: application/json
+###
+
+POST {{CargoFlow_HostAddress}}/api/shipments
+Content-Type: application/json
+
+{
+  "customer_id": 1,
+  "weight_type_id": 1,
+  "weight": 700,
+  "destination_id": 2,
+  "pickup_id": 2
+}
+###
+
+POST {{CargoFlow_HostAddress}}/api/shipments/3/offers
+Content-Type: application/json
+
+{
+  "company_id": 1,
+  "price": 512
+}
+
+###
+GET {{CargoFlow_HostAddress}}/api/shipments/3/
+###
+
+GET {{CargoFlow_HostAddress}}/api/shipments/3/offers
+###
+
+POST {{CargoFlow_HostAddress}}/api/shipments/3/offers/6/award
+###
+
+POST {{CargoFlow_HostAddress}}/api/shipments/3/open-for-offers
+###
+
+POST {{CargoFlow_HostAddress}}/api/shipments/3/offers/6/withdraw
+###

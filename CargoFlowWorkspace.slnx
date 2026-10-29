@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="CargoFlow.IntegrationTests/CargoFlow.IntegrationTests.csproj" />
+  <Project Path="CargoFlow/CargoFlow.csproj" />
+</Solution>
