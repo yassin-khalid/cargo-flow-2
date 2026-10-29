@@ -3,6 +3,7 @@ using CargoFlow.Domain;
 using CargoFlow.Dtos;
 using CargoFlow.Helpers;
 using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 namespace CargoFlow.Endpoints;
