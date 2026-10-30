@@ -247,6 +247,19 @@ public static class OfferEndpoints
             );
         }
 
+        var withdrawnStateId = await db.OfferStates
+            .Where(os => os.Name == "Withdrawn")
+            .Select(os => os.Id)
+            .FirstOrDefaultAsync();
+
+        if (offer.OfferStateId == withdrawnStateId)
+        {
+            return TypedResults.Problem(
+                statusCode: StatusCodes.Status409Conflict,
+                title: "Offer State Conflict",
+                detail: $"offer #{offer.Id} is already withdrawn and cannot be awarded");
+        }
+        
         var offerStateId = await db.OfferStates
             .Where(os => os.Name == "Accepted")
             .Select(os => os.Id)
