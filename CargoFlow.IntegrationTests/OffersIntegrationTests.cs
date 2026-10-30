@@ -201,6 +201,10 @@ public class OffersIntegrationTests(LocalSqlWebApplicationFactory<Program> facto
 
       using var verifyScope = factory.Services.CreateScope();
       var verifyDb = verifyScope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+      var updatedShipment =
+         await verifyDb.Shipments
+            .Include(s => s.ShipmentStatus)
+            .FirstAsync(s => s.Id == shipment.Id);
       var finalOffer = await verifyDb.Offers
          .Include(o => o.OfferState)
          .FirstAsync(o => o.Id == offer.Id);
@@ -209,12 +213,14 @@ public class OffersIntegrationTests(LocalSqlWebApplicationFactory<Program> facto
       {
          Assert.True(finalOffer.HasWon);
          Assert.Equal("Accepted", finalOffer.OfferState.Name);
+         Assert.Equal("Awarded", updatedShipment.ShipmentStatus.Name);
       }
 
       if (withdrawResponse.IsSuccessStatusCode)
       {
          Assert.False(finalOffer.HasWon);
          Assert.Equal("Withdrawn", finalOffer.OfferState.Name);
+         Assert.Equal("Offers Received", updatedShipment.ShipmentStatus.Name);
       }
 
    }
