@@ -125,9 +125,29 @@ public class OffersIntegrationTests(LocalSqlWebApplicationFactory<Program> facto
    {
       using var scope = factory.Services.CreateScope();
       var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+      
+      var acceptedStateId = await db.OfferStates
+         .Where(os => os.Name == "Accepted")
+         .Select(os => os.Id)
+         .FirstAsync();
+
+      var rejectedStateId = await db.OfferStates
+         .Where(os => os.Name == "Rejected")
+         .Select(os => os.Id)
+         .FirstAsync();
+      
+      var awardedStatusId = await db.ShipmentStatuses
+         .Where(ss => ss.Name == "Awarded")
+         .Select(ss => ss.Id)
+         .FirstAsync();
+      
       var (shipment, offers) = await ShipmentSeeder.SeedShipmentsWithOffersAsync(db, "Offers Received", "Ton (t)", 200,
       [
-         new OfferSpec("Test Company", 1400, "Submitted")
+         new OfferSpec("Test Company", 1400, "Submitted"),
+         new OfferSpec("Test Company", 1300, "Submitted"),
+         new OfferSpec("Test Company", 1200, "Submitted"),
+         new OfferSpec("Test Company", 1100, "Submitted"),
+         new OfferSpec("Test Company", 1000, "Submitted"),
       ]);
 
       var offer = offers[0];
@@ -140,8 +160,16 @@ public class OffersIntegrationTests(LocalSqlWebApplicationFactory<Program> facto
       using var verifyScope = factory.Services.CreateScope();
       var verifyDb = verifyScope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
       var updatedOffer = await verifyDb.Offers.FirstOrDefaultAsync(o => o.Id == offer.Id);
+      var updatedShipment = await verifyDb.Shipments.FirstOrDefaultAsync(s => s.Id == shipment.Id);
       Assert.NotNull(updatedOffer);
       Assert.True(updatedOffer.HasWon);
+      Assert.Equal(acceptedStateId, updatedOffer.OfferStateId);
+      Assert.NotNull(updatedShipment);
+      Assert.Equal(awardedStatusId, updatedShipment.ShipmentStatusId);
+      var updatedOtherOffers = await verifyDb.Offers
+         .Where(o => o.ShipmentId == updatedShipment.Id && o.Id != offer.Id)
+         .ToListAsync();
+      Assert.All(updatedOtherOffers, (o) => Assert.Equal(rejectedStateId, o.OfferStateId));
    }
 
    [Fact]
@@ -197,11 +225,6 @@ public class OffersIntegrationTests(LocalSqlWebApplicationFactory<Program> facto
       using var scope = factory.Services.CreateScope();
       var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
       
-      // var underReviewStateId = await db.OfferStates
-      //    .Where(os => os.Name == "Under Review")
-      //    .Select(os => os.Id)
-      //    .FirstAsync();
-      
       var rejectedStateId = await db.OfferStates
          .Where(os => os.Name == "Rejected")
          .Select(os => os.Id)
@@ -222,23 +245,14 @@ public class OffersIntegrationTests(LocalSqlWebApplicationFactory<Program> facto
          "Offers Received", 
          "Ton (t)", 
          500, [
-         // new OfferSpec("Test Company 1", 500, "Under Review"),
          new OfferSpec("Test Company 1", 500, "Rejected"),
          new OfferSpec("Test Company 1", 500, "Expired"),
          new OfferSpec("Test Company 1", 500, "Withdrawn"),
       ]);
 
-      // var underReviewOfferId = OfferIdByType(underReviewStateId);
       var rejectedOfferId = OfferIdByType(rejectedStateId);
       var expiredOfferId = OfferIdByType(expiredStateId);
       var withdrawnOfferId = OfferIdByType(withdrawnStateId);
-      
-      
-      
-      // var underReviewResponse =
-      //    await _client.PostAsJsonAsync($"/api/shipments/{shipment.Id}/offers/{underReviewOfferId}/award", new { });
-      //
-      // Assert.Equal(HttpStatusCode.Conflict, underReviewResponse.StatusCode);
       
       var expiredResponse =
          await _client.PostAsJsonAsync($"/api/shipments/{shipment.Id}/offers/{expiredOfferId}/award", new { });
