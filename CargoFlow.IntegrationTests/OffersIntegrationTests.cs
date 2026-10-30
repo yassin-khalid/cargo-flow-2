@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using CargoFlow.Data;
+using CargoFlow.Domain;
 using CargoFlow.Dtos;
 using CargoFlow.IntegrationTests.Helpers;
 using Microsoft.EntityFrameworkCore;
@@ -191,22 +192,74 @@ public class OffersIntegrationTests(LocalSqlWebApplicationFactory<Program> facto
    }
 
    [Fact]
-   public async Task AwardOffer_AlreadyWithdrawnOffer_Returns409Conflict()
+   public async Task AwardOffer_NotAcceptedOffers_Returns409Conflict()
    {
       using var scope = factory.Services.CreateScope();
       var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+      
+      // var underReviewStateId = await db.OfferStates
+      //    .Where(os => os.Name == "Under Review")
+      //    .Select(os => os.Id)
+      //    .FirstAsync();
+      
+      var rejectedStateId = await db.OfferStates
+         .Where(os => os.Name == "Rejected")
+         .Select(os => os.Id)
+         .FirstAsync();
+      
+      var expiredStateId = await db.OfferStates
+         .Where(os => os.Name == "Expired")
+         .Select(os => os.Id)
+         .FirstAsync();
+      
+      var withdrawnStateId = await db.OfferStates
+         .Where(os => os.Name == "Withdrawn")
+         .Select(os => os.Id)
+         .FirstAsync();
+      
       var (shipment, offers) = await ShipmentSeeder.SeedShipmentsWithOffersAsync(
          db, 
          "Offers Received", 
          "Ton (t)", 
          500, [
-         new OfferSpec("Test Company 1", 500, "Withdrawn")
+         // new OfferSpec("Test Company 1", 500, "Under Review"),
+         new OfferSpec("Test Company 1", 500, "Rejected"),
+         new OfferSpec("Test Company 1", 500, "Expired"),
+         new OfferSpec("Test Company 1", 500, "Withdrawn"),
       ]);
 
-      var response =
-         await _client.PostAsJsonAsync($"/api/shipments/{shipment.Id}/offers/{offers[0].Id}/award", new { });
+      // var underReviewOfferId = OfferIdByType(underReviewStateId);
+      var rejectedOfferId = OfferIdByType(rejectedStateId);
+      var expiredOfferId = OfferIdByType(expiredStateId);
+      var withdrawnOfferId = OfferIdByType(withdrawnStateId);
       
-      Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+      
+      
+      // var underReviewResponse =
+      //    await _client.PostAsJsonAsync($"/api/shipments/{shipment.Id}/offers/{underReviewOfferId}/award", new { });
+      //
+      // Assert.Equal(HttpStatusCode.Conflict, underReviewResponse.StatusCode);
+      
+      var expiredResponse =
+         await _client.PostAsJsonAsync($"/api/shipments/{shipment.Id}/offers/{expiredOfferId}/award", new { });
+      
+      Assert.Equal(HttpStatusCode.Conflict, expiredResponse.StatusCode);
+      
+      var rejectedResponse =
+         await _client.PostAsJsonAsync($"/api/shipments/{shipment.Id}/offers/{rejectedOfferId}/award", new { });
+      
+      Assert.Equal(HttpStatusCode.Conflict, rejectedResponse.StatusCode);
+      
+      var withdrawnResponse =
+         await _client.PostAsJsonAsync($"/api/shipments/{shipment.Id}/offers/{withdrawnOfferId}/award", new { });
+      
+      Assert.Equal(HttpStatusCode.Conflict, withdrawnResponse.StatusCode);
+      
+      return;
 
+      int OfferIdByType(int offerStateId) =>
+         offers.Where(o => o.OfferStateId == offerStateId)
+            .Select(o => o.Id)
+            .FirstOrDefault();
    }
 }

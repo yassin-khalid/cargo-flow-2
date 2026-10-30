@@ -252,6 +252,15 @@ public static class OfferEndpoints
             .Select(os => os.Id)
             .FirstOrDefaultAsync();
 
+        if (withdrawnStateId == 0)
+        {
+            return TypedResults.Problem(
+                statusCode: StatusCodes.Status500InternalServerError,
+                title: "Database Configuration Error",
+                detail: "Required system lookup data ('Withdrawn' state) is missing. Please ensure the database seeder has been executed."
+            );           
+        }
+        
         if (offer.OfferStateId == withdrawnStateId)
         {
             return TypedResults.Problem(
@@ -260,12 +269,12 @@ public static class OfferEndpoints
                 detail: $"offer #{offer.Id} is already withdrawn and cannot be awarded");
         }
         
-        var offerStateId = await db.OfferStates
+        var acceptedStateId = await db.OfferStates
             .Where(os => os.Name == "Accepted")
             .Select(os => os.Id)
             .FirstOrDefaultAsync();
 
-        if (offerStateId == 0)
+        if (acceptedStateId == 0)
         {
             return TypedResults.Problem(
                 statusCode: StatusCodes.Status500InternalServerError,
@@ -274,6 +283,59 @@ public static class OfferEndpoints
             );
         }
 
+        if (offer.OfferStateId == acceptedStateId)
+        {
+            return TypedResults.Problem(
+                statusCode: StatusCodes.Status409Conflict,
+                title: "Offer State Conflict",
+                detail: $"offer #{offer.Id} is already accepted and cannot be awarded");           
+        }
+
+        var rejectedStateId = await db.OfferStates
+            .Where(os => os.Name == "Rejected")
+            .Select(os => os.Id)
+            .FirstOrDefaultAsync();
+
+        if (rejectedStateId is 0)
+        {
+            return TypedResults.Problem(
+                statusCode: StatusCodes.Status500InternalServerError,
+                title: "Database Configuration Error",
+                detail: "Required system lookup data ('Rejected' state) is missing. Please ensure the database seeder has been executed."
+            );
+        }
+
+        if (offer.OfferStateId == rejectedStateId)
+        {
+            return TypedResults.Problem(
+                statusCode: StatusCodes.Status409Conflict,
+                title: "Offer State Conflict",
+                detail: $"offer #{offer.Id} is already rejected and cannot be awarded");                      
+        }
+
+        var expiredStateId =
+            await db.OfferStates
+                .Where(os => os.Name == "Expired")
+                .Select(os => os.Id)
+                .FirstOrDefaultAsync();
+
+        if (expiredStateId is 0)
+        {
+            return TypedResults.Problem(
+                statusCode: StatusCodes.Status500InternalServerError,
+                title: "Database Configuration Error",
+                detail: "Required system lookup data ('Expired' state) is missing. Please ensure the database seeder has been executed."
+            );           
+        }
+
+        if (offer.OfferStateId == expiredStateId)
+        {
+            return TypedResults.Problem(
+                statusCode: StatusCodes.Status409Conflict,
+                title: "Offer State Conflict",
+                detail: $"offer #{offer.Id} is already expired and cannot be awarded");                                 
+        }
+        
         var shipmentStatusId = await db.ShipmentStatuses
             .Where(ss => ss.Name == "Awarded")
             .Select(ss => ss.Id)
@@ -289,31 +351,16 @@ public static class OfferEndpoints
             );
         }
 
-
-        var rejectedOfferStateId = await db.OfferStates
-            .Where(os => os.Name == "Rejected")
-            .Select(os => os.Id)
-            .FirstOrDefaultAsync();
-
-        if (rejectedOfferStateId is 0)
-        {
-            return TypedResults.Problem(
-                statusCode: StatusCodes.Status500InternalServerError,
-                title: "Database Configuration Error",
-                detail: "Required system lookup data ('Rejected' state) is missing. Please ensure the database seeder has been executed."
-            );
-        }
-
         var otherOffers = await db.Offers
             .Where(o => o.Id != offerId && o.ShipmentId == shipmentId)
             .ToListAsync();
 
         foreach (var oo in otherOffers)
         {
-            oo.OfferStateId = rejectedOfferStateId;
+            oo.OfferStateId = rejectedStateId;
         }
             
-        offer.OfferStateId = offerStateId;
+        offer.OfferStateId = acceptedStateId;
         offer.HasWon = true;
         shipment.ShipmentStatusId = shipmentStatusId;
 
