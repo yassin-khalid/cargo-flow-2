@@ -5,6 +5,8 @@ using Microsoft.EntityFrameworkCore;
 namespace CargoFlow.IntegrationTests.Helpers;
 
 public record OfferSpec(string CompanyName, decimal Price, string StateName, bool HasWon = false);
+
+public record ShipmentSpec(string ShipmentStatus, string WeightType, decimal Weight);
 public static class ShipmentSeeder
 {
     private static (Address pickup, Address destination) GenerateUniqueAddresses()
@@ -34,7 +36,7 @@ public static class ShipmentSeeder
     }
     
     
-    public static async Task<(Shipment, List<Offer>)> SeedShipmentsWithOffersAsync(
+    public static async Task<(Shipment, List<Offer>)> SeedShipmentWithOffersAsync(
         CargoFlowDbContext db, 
         string shipmentStatus, 
         string weightType, 
@@ -104,5 +106,89 @@ public static class ShipmentSeeder
         }
 
         return (shipment, offers);
+    }
+
+    public static async Task<Dictionary<string, Shipment>> SeedShipmentListWithUniqueStatusAsync(
+        CargoFlowDbContext db,
+        ShipmentSpec[] shipmentSpecs,
+        CancellationToken ct = default
+    )
+    {
+        if (shipmentSpecs is {Length: 0})
+        {
+            return new Dictionary<string, Shipment>();
+        }
+
+        var duplicateStatuses = shipmentSpecs
+            .GroupBy(s => s.ShipmentStatus)
+            .Where(g => g.Count() > 1)
+            .Select(g => g.Key)
+            .ToList();
+
+        if (duplicateStatuses is { Count: > 0 })
+        {
+            throw new ArgumentException(
+                $"ShipmentStatus must be unique. Duplicates found: {string.Join(", ", duplicateStatuses)}",
+                nameof(shipmentSpecs));
+        }
+        
+        var uniqueSuffix = Guid.NewGuid().ToString("N")[..8];
+        
+        var statusMap = await db.ShipmentStatuses
+            .ToDictionaryAsync(ss => ss.Name, ct);
+
+        var weightTypeMap = await db.WeightTypes
+            .ToDictionaryAsync(wt => wt.Name, ct);
+
+        List<Shipment> created = [];
+        for (var i = 0; i < shipmentSpecs.Length; i++)
+        {
+            var spec = shipmentSpecs[i];
+
+            if (!statusMap.TryGetValue(spec.ShipmentStatus, out var targetStatus))
+            {
+                throw new ArgumentException($"Unknown status: {spec.ShipmentStatus}");
+            }
+
+            if (!weightTypeMap.TryGetValue(spec.WeightType, out var targetType))
+            {
+                throw new ArgumentException($"Unknown weight type: {spec.WeightType}");
+            }
+        
+            var (pickup, destination) = GenerateUniqueAddresses();
+        
+            db.Addresses.AddRange(pickup, destination);
+
+            var subSuffix = $"{uniqueSuffix}-{i}";
+
+            var customer = new Customer()
+            {
+                Name = $"Cust-{subSuffix}",
+                NationalId = $"Nat-{i}-{subSuffix[..4]}"
+            };
+            db.Customers.Add(customer);
+        
+            await db.SaveChangesAsync(ct);
+
+            var shipment = new Shipment()
+            {
+                DestinationId = destination.Id,
+                PickupId = pickup.Id,
+                Weight = spec.Weight,
+                CustomerId = customer.Id,
+                WeightTypeId = targetType.Id,
+                ShipmentStatusId = targetStatus.Id,
+            };
+
+            db.Shipments.Add(shipment);
+            created.Add(shipment);
+        }
+
+        await db.SaveChangesAsync(ct);
+        
+        return await db.Shipments
+            .Where(s => created.Select(c => c.Id).Contains(s.Id))
+            .Include(s => s.ShipmentStatus )
+            .ToDictionaryAsync(s => s.ShipmentStatus.Name, cancellationToken: ct);
     }
 }

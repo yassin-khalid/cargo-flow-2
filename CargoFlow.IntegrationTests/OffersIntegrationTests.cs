@@ -27,7 +27,7 @@ public class OffersIntegrationTests(LocalSqlWebApplicationFactory<Program> facto
       var company = companies[0];
       var company2 = companies[1];
       
-      var (shipment, _) = await ShipmentSeeder.SeedShipmentsWithOffersAsync(
+      var (shipment, _) = await ShipmentSeeder.SeedShipmentWithOffersAsync(
          db, 
          "Open for Offers", 
          "Ton (t)", 
@@ -68,7 +68,7 @@ public class OffersIntegrationTests(LocalSqlWebApplicationFactory<Program> facto
       var withdrawnState = await db.OfferStates.FirstAsync(os => os.Name == "Withdrawn");
       var receivedStatus = await db.ShipmentStatuses.FirstAsync(ss => ss.Name == "Offers Received");
       
-      var (shipment, offers) = await ShipmentSeeder.SeedShipmentsWithOffersAsync(db, "Offers Received", "Ton (t)", 40, [
+      var (shipment, offers) = await ShipmentSeeder.SeedShipmentWithOffersAsync(db, "Offers Received", "Ton (t)", 40, [
          new OfferSpec("Test Company", 400, "Submitted")
       ]);
 
@@ -98,7 +98,7 @@ public class OffersIntegrationTests(LocalSqlWebApplicationFactory<Program> facto
       var acceptedState = await db.OfferStates.FirstAsync(os => os.Name == "Accepted");
       var rejectedState = await db.OfferStates.FirstAsync(os => os.Name == "Rejected");
 
-      var (shipment, offers) = await ShipmentSeeder.SeedShipmentsWithOffersAsync(db, "Offers Received", "Ton (t)", 300,
+      var (shipment, offers) = await ShipmentSeeder.SeedShipmentWithOffersAsync(db, "Offers Received", "Ton (t)", 300,
       [
          new OfferSpec("Test Company 1", 500, "Accepted", true),
          new OfferSpec("Test Company 2", 400, "Rejected"),
@@ -140,7 +140,7 @@ public class OffersIntegrationTests(LocalSqlWebApplicationFactory<Program> facto
          .Select(ss => ss.Id)
          .FirstAsync();
       
-      var (shipment, offers) = await ShipmentSeeder.SeedShipmentsWithOffersAsync(db, "Offers Received", "Ton (t)", 200,
+      var (shipment, offers) = await ShipmentSeeder.SeedShipmentWithOffersAsync(db, "Offers Received", "Ton (t)", 200,
       [
          new OfferSpec("Test Company", 1400, "Submitted"),
          new OfferSpec("Test Company", 1300, "Submitted"),
@@ -178,7 +178,7 @@ public class OffersIntegrationTests(LocalSqlWebApplicationFactory<Program> facto
       using var scope = factory.Services.CreateScope();
       var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
 
-      var (shipment, offers) = await ShipmentSeeder.SeedShipmentsWithOffersAsync(db, "Offers Received", "Ton (t)", 300,
+      var (shipment, offers) = await ShipmentSeeder.SeedShipmentWithOffersAsync(db, "Offers Received", "Ton (t)", 300,
       [
          new OfferSpec("Test Company", 3000, "Submitted")
       ]);
@@ -246,7 +246,7 @@ public class OffersIntegrationTests(LocalSqlWebApplicationFactory<Program> facto
          .Select(os => os.Id)
          .FirstAsync();
       
-      var (shipment, offers) = await ShipmentSeeder.SeedShipmentsWithOffersAsync(
+      var (shipment, offers) = await ShipmentSeeder.SeedShipmentWithOffersAsync(
          db, 
          "Offers Received", 
          "Ton (t)", 
@@ -281,5 +281,78 @@ public class OffersIntegrationTests(LocalSqlWebApplicationFactory<Program> facto
          offers.Where(o => o.OfferStateId == offerStateId)
             .Select(o => o.Id)
             .FirstOrDefault();
+   }
+
+   [Fact]
+   public async Task CancelOffer_ValidShipments_Returns204AndTransitionsShipmentStatus()
+   {
+      using var scope = factory.Services.CreateScope();
+      var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+
+      var shipments = await ShipmentSeeder.SeedShipmentListWithUniqueStatusAsync(db, [
+         new ShipmentSpec("Draft", "Ton (t)", 30),
+         new ShipmentSpec("Open for Offers", "Ton (t)", 30),
+         new ShipmentSpec("Offers Received", "Ton (t)", 30),
+      ]);
+
+      var draftResponse = await _client.PostAsJsonAsync($"/api/shipments/{shipments["Draft"].Id}/cancel", new { });
+      Assert.Equal(HttpStatusCode.NoContent, draftResponse.StatusCode);
+      
+      var openResponse = await _client.PostAsJsonAsync($"/api/shipments/{shipments["Open for Offers"].Id}/cancel", new { });
+      Assert.Equal(HttpStatusCode.NoContent, openResponse.StatusCode);
+      
+      var receivedResponse = await _client.PostAsJsonAsync($"/api/shipments/{shipments["Offers Received"].Id}/cancel", new { });
+      Assert.Equal(HttpStatusCode.NoContent, receivedResponse.StatusCode);
+   
+      using var verifyScope = factory.Services.CreateScope();
+      var verifyDb = verifyScope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+
+      var shipmentIds = shipments.Values.Select(v => v.Id).ToList();
+
+      var shipmentsStatuses = await verifyDb.Shipments
+         .Include(s => s.ShipmentStatus)
+         .Where(s => shipmentIds.Contains(s.Id))
+         .Select(s => s.ShipmentStatus.Name)
+         .ToListAsync();
+      
+      Assert.All(shipmentsStatuses, s => Assert.Equal("Cancelled", s));
+   }
+
+   [Fact]
+   public async Task CancelOffer_InvalidShipments_Returns409Conflict()
+   {
+      using var scope = factory.Services.CreateScope();
+      var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+
+      var shipments = await ShipmentSeeder.SeedShipmentListWithUniqueStatusAsync(db, [
+         new ShipmentSpec("Awarded", "Ton (t)", 20),
+         new ShipmentSpec("In Transit", "Ton (t)", 20),
+         new ShipmentSpec("Delivered", "Ton (t)", 20),
+         new ShipmentSpec("Completed", "Ton (t)", 20),
+         new ShipmentSpec("Cancelled", "Ton (t)", 20),
+      ]);
+
+      var shipmentIds = shipments.Values.Select(s => s.Id).ToList();
+      foreach (var shipmentId in shipmentIds)
+      {
+         var response = await _client.PostAsJsonAsync($"/api/shipments/{shipmentId}/cancel", new { });
+         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+      }
+
+      using var verifyScope = factory.Services.CreateScope();
+      var verifyDb = verifyScope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+
+      var result = await verifyDb.Shipments
+         .Include(s => s.ShipmentStatus)
+         .Where(s => shipmentIds.Contains(s.Id))
+         .ToListAsync();
+      
+      Assert.Equal(shipmentIds.Count, result.Count);
+
+      foreach (var s in result)
+      {
+         Assert.True(shipments.TryGetValue(s.ShipmentStatus.Name, out var original));
+         Assert.Equal(original.Id, s.Id);
+      }
    }
 }

@@ -15,6 +15,7 @@ public static class ShipmentEndpoints
             .WithName(EndpointRouteNames.GetShipmentByIdRoute);
         group.MapPost("/", CreateShipment);
         group.MapPost("/{id:int}/open-for-offers", OpenForOffers);
+        group.MapPost("/{id:int}/cancel", CancelShipment);
         return group;
     }
 
@@ -178,6 +179,102 @@ public static class ShipmentEndpoints
         }
 
         return TypedResults.NoContent();
+
+    }
+
+    private static async Task<Results<NoContent, ProblemHttpResult>> CancelShipment(int id, CargoFlowDbContext db)
+    {
+        var shipment = await db.Shipments.FirstOrDefaultAsync(s => s.Id == id);
+        if (shipment is null)
+        {
+            return TypedResults.Problem(
+                statusCode: StatusCodes.Status404NotFound,
+                title: "Shipment Not Found",
+                detail: $"Shipment #{id} does not exist");
+        }
+
+        var cancelledStatusId = await db.ShipmentStatuses
+            .Where(ss => ss.Name == "Cancelled")
+            .Select(ss => ss.Id)
+            .FirstOrDefaultAsync();
+
+        if (cancelledStatusId == 0)
+        {
+            return TypedResults.Problem(
+                statusCode: StatusCodes.Status500InternalServerError,
+                title: "Database Configuration Error",
+                detail: "Required system lookup data ('Cancelled' status) is missing. Please ensure the database seeder has been executed.");
+        }
+
+        if (shipment.ShipmentStatusId == cancelledStatusId)
+        {
+            return TypedResults.Problem(
+                statusCode: StatusCodes.Status409Conflict,
+                title: "Shipment Status Conflict",
+                detail: $"Shipment #{id} already cancelled");
+        }
+        
+        var draftStatusId = await db.ShipmentStatuses
+            .Where(ss => ss.Name == "Draft")
+            .Select(ss => ss.Id)
+            .FirstOrDefaultAsync();
+
+        if (draftStatusId == 0)
+        {
+            return TypedResults.Problem(
+                statusCode: StatusCodes.Status500InternalServerError,
+                title: "Database Configuration Error",
+                detail: "Required system lookup data ('Draft' status) is missing. Please ensure the database seeder has been executed.");
+        }
+        
+        
+        var receivedStatusId = await db.ShipmentStatuses
+            .Where(ss => ss.Name == "Offers Received")
+            .Select(ss => ss.Id)
+            .FirstOrDefaultAsync();
+
+        if (receivedStatusId == 0)
+        {
+            return TypedResults.Problem(
+                statusCode: StatusCodes.Status500InternalServerError,
+                title: "Database Configuration Error",
+                detail: "Required system lookup data ('Offers Received' status) is missing. Please ensure the database seeder has been executed.");
+        }
+        
+        var openStatusId = await db.ShipmentStatuses
+            .Where(ss => ss.Name == "Open for Offers")
+            .Select(ss => ss.Id)
+            .FirstOrDefaultAsync();
+
+        if (openStatusId == 0)
+        {
+            return TypedResults.Problem(
+                statusCode: StatusCodes.Status500InternalServerError,
+                title: "Database Configuration Error",
+                detail: "Required system lookup data ('Open for Offers' status) is missing. Please ensure the database seeder has been executed.");
+        }
+
+        if (!new HashSet<int>{openStatusId, draftStatusId, receivedStatusId}.Contains(shipment.ShipmentStatusId))
+        {
+            return TypedResults.Problem(
+                statusCode: StatusCodes.Status409Conflict,
+                title: "Shipment Status Conflict",
+                detail: $"Shipment #{id} has an invalid status, only 'Draft', 'Open for Offers' or 'Offers Received' shipment can be cancelled");
+        }
+
+        shipment.ShipmentStatusId = cancelledStatusId;
+        try
+        {
+            await db.SaveChangesAsync();
+            return TypedResults.NoContent();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return TypedResults.Problem(
+                statusCode: StatusCodes.Status409Conflict,
+                title: "Update Concurrency Conflict",
+                detail: $"Shipment {id} has been modified by another concurrent request");
+        }
 
     }
 }
