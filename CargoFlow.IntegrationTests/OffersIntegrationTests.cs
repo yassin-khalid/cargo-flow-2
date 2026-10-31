@@ -169,6 +169,7 @@ public class OffersIntegrationTests(LocalSqlWebApplicationFactory<Program> facto
          .Where(o => o.ShipmentId == updatedShipment.Id && o.Id != offer.Id)
          .ToListAsync();
       Assert.All(updatedOtherOffers, (o) => Assert.Equal(rejectedStateId, o.OfferStateId));
+      Assert.All(updatedOtherOffers, (o) => Assert.False(o.HasWon));
    }
 
    [Fact]
@@ -225,7 +226,7 @@ public class OffersIntegrationTests(LocalSqlWebApplicationFactory<Program> facto
    }
 
    [Fact]
-   public async Task AwardOffer_NotAcceptedOffers_Returns409Conflict()
+   public async Task AwardOffer_NotSubmittedOffers_Returns409Conflict()
    {
       using var scope = factory.Services.CreateScope();
       var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();

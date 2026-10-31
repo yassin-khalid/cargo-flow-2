@@ -8,7 +8,8 @@ namespace CargoFlow.IntegrationTests;
 
 public class LocalSqlWebApplicationFactory<TProgram> : WebApplicationFactory<TProgram>, IAsyncLifetime where TProgram : class
 {
-    private static readonly string _testDbPassword = Environment.GetEnvironmentVariable("TEST_DB_PASSWORD") ?? "TEST_DB_PASSWORD";
+    private static readonly string _testDbPassword = Environment.GetEnvironmentVariable("TEST_DB_PASSWORD") 
+                                                     ?? throw new Exception("Environment variable 'TEST_DB_PASSWORD' is missing");
     private static readonly string _databaseName = $"TestDb_{Guid.NewGuid():N}";
     private static string TestConnectionString => $"Data Source=localhost,1433;Initial Catalog={_databaseName};User Id=sa;Password={_testDbPassword};TrustServerCertificate=True";
     
