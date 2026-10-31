@@ -1,7 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
 using CargoFlow.Data;
-using CargoFlow.Domain;
 using CargoFlow.Dtos;
 using CargoFlow.IntegrationTests.Helpers;
 using Microsoft.EntityFrameworkCore;

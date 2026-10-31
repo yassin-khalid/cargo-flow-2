@@ -247,33 +247,33 @@ public static class OfferEndpoints
             );
         }
 
-        var withdrawnStateId = await db.OfferStates
-            .Where(os => os.Name == "Withdrawn")
+        var submittedStateId = await db.OfferStates
+            .Where(os => os.Name == "Submitted")
             .Select(os => os.Id)
             .FirstOrDefaultAsync();
-
-        if (withdrawnStateId == 0)
+        
+        if (submittedStateId == 0)
         {
             return TypedResults.Problem(
                 statusCode: StatusCodes.Status500InternalServerError,
                 title: "Database Configuration Error",
-                detail: "Required system lookup data ('Withdrawn' state) is missing. Please ensure the database seeder has been executed."
-            );           
+                detail: "Required system lookup data ('Submitted' state) is missing. Please ensure the database seeder has been executed."
+            );
         }
         
-        if (offer.OfferStateId == withdrawnStateId)
+        if (offer.OfferStateId != submittedStateId)
         {
             return TypedResults.Problem(
                 statusCode: StatusCodes.Status409Conflict,
                 title: "Offer State Conflict",
-                detail: $"offer #{offer.Id} is already withdrawn and cannot be awarded");
+                detail: $"offer #{offer.Id} cannot be awarded, only 'Submitted' offers can");           
         }
         
         var acceptedStateId = await db.OfferStates
             .Where(os => os.Name == "Accepted")
             .Select(os => os.Id)
             .FirstOrDefaultAsync();
-
+        
         if (acceptedStateId == 0)
         {
             return TypedResults.Problem(
@@ -282,20 +282,12 @@ public static class OfferEndpoints
                 detail: "Required system lookup data ('Accepted' state) is missing. Please ensure the database seeder has been executed."
             );
         }
-
-        if (offer.OfferStateId == acceptedStateId)
-        {
-            return TypedResults.Problem(
-                statusCode: StatusCodes.Status409Conflict,
-                title: "Offer State Conflict",
-                detail: $"offer #{offer.Id} is already accepted and cannot be awarded");           
-        }
-
+        
         var rejectedStateId = await db.OfferStates
             .Where(os => os.Name == "Rejected")
             .Select(os => os.Id)
             .FirstOrDefaultAsync();
-
+        
         if (rejectedStateId is 0)
         {
             return TypedResults.Problem(
@@ -303,37 +295,6 @@ public static class OfferEndpoints
                 title: "Database Configuration Error",
                 detail: "Required system lookup data ('Rejected' state) is missing. Please ensure the database seeder has been executed."
             );
-        }
-
-        if (offer.OfferStateId == rejectedStateId)
-        {
-            return TypedResults.Problem(
-                statusCode: StatusCodes.Status409Conflict,
-                title: "Offer State Conflict",
-                detail: $"offer #{offer.Id} is already rejected and cannot be awarded");                      
-        }
-
-        var expiredStateId =
-            await db.OfferStates
-                .Where(os => os.Name == "Expired")
-                .Select(os => os.Id)
-                .FirstOrDefaultAsync();
-
-        if (expiredStateId is 0)
-        {
-            return TypedResults.Problem(
-                statusCode: StatusCodes.Status500InternalServerError,
-                title: "Database Configuration Error",
-                detail: "Required system lookup data ('Expired' state) is missing. Please ensure the database seeder has been executed."
-            );           
-        }
-
-        if (offer.OfferStateId == expiredStateId)
-        {
-            return TypedResults.Problem(
-                statusCode: StatusCodes.Status409Conflict,
-                title: "Offer State Conflict",
-                detail: $"offer #{offer.Id} is already expired and cannot be awarded");                                 
         }
         
         var shipmentStatusId = await db.ShipmentStatuses
