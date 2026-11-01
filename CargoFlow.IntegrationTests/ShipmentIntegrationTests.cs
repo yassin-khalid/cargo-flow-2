@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using CargoFlow.Data;
 using CargoFlow.IntegrationTests.Helpers;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -129,6 +130,7 @@ public class ShipmentIntegrationTests(LocalSqlWebApplicationFactory<Program> fac
       Assert.Equal(dbOffers.Count, offers.Count);
       Assert.All(dbOffers, dbo => Assert.Equal(offers
          .First(o => o.Id == dbo.Id).OfferStateId, dbo.OfferStateId));
+      Assert.All(dbOffers, dbo => Assert.Equal(offers.First(o => o.Id == dbo.Id).HasWon, dbo.HasWon));
    }
 
    [Fact]
@@ -143,13 +145,21 @@ public class ShipmentIntegrationTests(LocalSqlWebApplicationFactory<Program> fac
 
       var firstCancelRequest = _client.PostAsJsonAsync($"/api/shipments/{shipment["Draft"].Id}/cancel", new { });
       var secondCancelRequest = _client.PostAsJsonAsync($"/api/shipments/{shipment["Draft"].Id}/cancel", new { });
-
-      var responses = await Task.WhenAll(firstCancelRequest, secondCancelRequest);
-
-      var successCount = responses.Count(r => r.StatusCode == HttpStatusCode.NoContent);
-      var conflictCount = responses.Count(r => r.StatusCode == HttpStatusCode.Conflict);
+      var thirdCancelRequest = _client.PostAsJsonAsync($"/api/shipments/{shipment["Draft"].Id}/cancel", new { });
       
-      Assert.Equal(1, successCount);
-      Assert.True(conflictCount >= 1);
+      var responses = await Task.WhenAll(firstCancelRequest, secondCancelRequest, thirdCancelRequest);
+      
+      var successResponses = responses.Where(r => r.StatusCode == HttpStatusCode.NoContent).ToList();
+      var conflictResponses = responses.Where(r => r.StatusCode == HttpStatusCode.Conflict).ToList();
+      
+      Assert.Single(successResponses);
+      Assert.NotEmpty(conflictResponses);
+      
+      foreach (var conflictResponse in conflictResponses)
+      {
+         var problemDetail = await conflictResponse.Content.ReadFromJsonAsync<ProblemDetails>();
+         Assert.NotNull(problemDetail);
+         Assert.True(problemDetail.Title is "Shipment Status Conflict" or "Update Concurrency Conflict");
+      }
    }
 }
