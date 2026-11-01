@@ -57,3 +57,6 @@ POST {{CargoFlow_HostAddress}}/api/shipments/3/open-for-offers
 
 POST {{CargoFlow_HostAddress}}/api/shipments/3/offers/6/withdraw
 ###
+
+POST {{CargoFlow_HostAddress}}/api/shipments/1/cancel
+###

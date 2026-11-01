@@ -1,6 +1,8 @@
 using System.Net;
 using System.Net.Http.Json;
 using CargoFlow.Data;
+using CargoFlow.Domain;
+using CargoFlow.Domain.Enums;
 using CargoFlow.Dtos;
 using CargoFlow.IntegrationTests.Helpers;
 using Microsoft.EntityFrameworkCore;
@@ -20,7 +22,7 @@ public class OffersIntegrationTests(LocalSqlWebApplicationFactory<Program> facto
       using var scope = factory.Services.CreateScope();
       var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
 
-      var receivedStatus = await db.ShipmentStatuses.FirstAsync(ss => ss.Name == "Offers Received");
+      var receivedStatus = await db.ShipmentStatuses.FirstAsync(ss => ss.Name == ShipmentStatusName.OffersReceived);
 
       var companies = await CompanySeeder.GenerateCompaniesAsync(db, 2);
 
@@ -29,7 +31,7 @@ public class OffersIntegrationTests(LocalSqlWebApplicationFactory<Program> facto
       
       var (shipment, _) = await ShipmentSeeder.SeedShipmentWithOffersAsync(
          db, 
-         "Open for Offers", 
+         ShipmentStatusName.OpenForOffers, 
          "Ton (t)", 
          3, 
          []);
@@ -65,11 +67,11 @@ public class OffersIntegrationTests(LocalSqlWebApplicationFactory<Program> facto
    {
       using var scope = factory.Services.CreateScope();
       var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
-      var withdrawnState = await db.OfferStates.FirstAsync(os => os.Name == "Withdrawn");
-      var receivedStatus = await db.ShipmentStatuses.FirstAsync(ss => ss.Name == "Offers Received");
+      var withdrawnState = await db.OfferStates.FirstAsync(os => os.Name == OfferStateName.Withdrawn);
+      var receivedStatus = await db.ShipmentStatuses.FirstAsync(ss => ss.Name == ShipmentStatusName.OffersReceived);
       
-      var (shipment, offers) = await ShipmentSeeder.SeedShipmentWithOffersAsync(db, "Offers Received", "Ton (t)", 40, [
-         new OfferSpec("Test Company", 400, "Submitted")
+      var (shipment, offers) = await ShipmentSeeder.SeedShipmentWithOffersAsync(db, ShipmentStatusName.OffersReceived, "Ton (t)", 40, [
+         new OfferSpec("Test Company", 400, OfferStateName.Submitted)
       ]);
 
       var submittedOffer = offers[0];
@@ -95,13 +97,13 @@ public class OffersIntegrationTests(LocalSqlWebApplicationFactory<Program> facto
    {
       using var scope = factory.Services.CreateScope();
       var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
-      var acceptedState = await db.OfferStates.FirstAsync(os => os.Name == "Accepted");
-      var rejectedState = await db.OfferStates.FirstAsync(os => os.Name == "Rejected");
+      var acceptedState = await db.OfferStates.FirstAsync(os => os.Name == OfferStateName.Accepted);
+      var rejectedState = await db.OfferStates.FirstAsync(os => os.Name == OfferStateName.Rejected);
 
-      var (shipment, offers) = await ShipmentSeeder.SeedShipmentWithOffersAsync(db, "Offers Received", "Ton (t)", 300,
+      var (shipment, offers) = await ShipmentSeeder.SeedShipmentWithOffersAsync(db, ShipmentStatusName.OffersReceived, "Ton (t)", 300,
       [
-         new OfferSpec("Test Company 1", 500, "Accepted", true),
-         new OfferSpec("Test Company 2", 400, "Rejected"),
+         new OfferSpec("Test Company 1", 500, OfferStateName.Accepted, true),
+         new OfferSpec("Test Company 2", 400, OfferStateName.Rejected),
       ]);
 
       var acceptedOffer = offers.First(offer => offer.OfferStateId == acceptedState.Id);
@@ -126,27 +128,27 @@ public class OffersIntegrationTests(LocalSqlWebApplicationFactory<Program> facto
       var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
       
       var acceptedStateId = await db.OfferStates
-         .Where(os => os.Name == "Accepted")
+         .Where(os => os.Name == OfferStateName.Accepted)
          .Select(os => os.Id)
          .FirstAsync();
 
       var rejectedStateId = await db.OfferStates
-         .Where(os => os.Name == "Rejected")
+         .Where(os => os.Name == OfferStateName.Rejected)
          .Select(os => os.Id)
          .FirstAsync();
       
       var awardedStatusId = await db.ShipmentStatuses
-         .Where(ss => ss.Name == "Awarded")
+         .Where(ss => ss.Name == ShipmentStatusName.Awarded)
          .Select(ss => ss.Id)
          .FirstAsync();
       
-      var (shipment, offers) = await ShipmentSeeder.SeedShipmentWithOffersAsync(db, "Offers Received", "Ton (t)", 200,
+      var (shipment, offers) = await ShipmentSeeder.SeedShipmentWithOffersAsync(db, ShipmentStatusName.OffersReceived, "Ton (t)", 200,
       [
-         new OfferSpec("Test Company", 1400, "Submitted"),
-         new OfferSpec("Test Company", 1300, "Submitted"),
-         new OfferSpec("Test Company", 1200, "Submitted"),
-         new OfferSpec("Test Company", 1100, "Submitted"),
-         new OfferSpec("Test Company", 1000, "Submitted"),
+         new OfferSpec("Test Company", 1400, OfferStateName.Submitted),
+         new OfferSpec("Test Company", 1300, OfferStateName.Submitted),
+         new OfferSpec("Test Company", 1200, OfferStateName.Submitted),
+         new OfferSpec("Test Company", 1100, OfferStateName.Submitted),
+         new OfferSpec("Test Company", 1000, OfferStateName.Submitted),
       ]);
 
       var offer = offers[0];
@@ -178,9 +180,9 @@ public class OffersIntegrationTests(LocalSqlWebApplicationFactory<Program> facto
       using var scope = factory.Services.CreateScope();
       var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
 
-      var (shipment, offers) = await ShipmentSeeder.SeedShipmentWithOffersAsync(db, "Offers Received", "Ton (t)", 300,
+      var (shipment, offers) = await ShipmentSeeder.SeedShipmentWithOffersAsync(db, ShipmentStatusName.OffersReceived, "Ton (t)", 300,
       [
-         new OfferSpec("Test Company", 3000, "Submitted")
+         new OfferSpec("Test Company", 3000, OfferStateName.Submitted)
       ]);
 
       var offer = offers[0];
@@ -212,15 +214,15 @@ public class OffersIntegrationTests(LocalSqlWebApplicationFactory<Program> facto
       if (awardResponse.IsSuccessStatusCode)
       {
          Assert.True(finalOffer.HasWon);
-         Assert.Equal("Accepted", finalOffer.OfferState.Name);
-         Assert.Equal("Awarded", updatedShipment.ShipmentStatus.Name);
+         Assert.Equal(OfferStateName.Accepted, finalOffer.OfferState.Name);
+         Assert.Equal(ShipmentStatusName.Awarded, updatedShipment.ShipmentStatus.Name);
       }
 
       if (withdrawResponse.IsSuccessStatusCode)
       {
          Assert.False(finalOffer.HasWon);
-         Assert.Equal("Withdrawn", finalOffer.OfferState.Name);
-         Assert.Equal("Offers Received", updatedShipment.ShipmentStatus.Name);
+         Assert.Equal(OfferStateName.Withdrawn, finalOffer.OfferState.Name);
+         Assert.Equal(ShipmentStatusName.OffersReceived, updatedShipment.ShipmentStatus.Name);
       }
 
    }
@@ -232,28 +234,28 @@ public class OffersIntegrationTests(LocalSqlWebApplicationFactory<Program> facto
       var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
       
       var rejectedStateId = await db.OfferStates
-         .Where(os => os.Name == "Rejected")
+         .Where(os => os.Name == OfferStateName.Rejected)
          .Select(os => os.Id)
          .FirstAsync();
       
       var expiredStateId = await db.OfferStates
-         .Where(os => os.Name == "Expired")
+         .Where(os => os.Name == OfferStateName.Expired)
          .Select(os => os.Id)
          .FirstAsync();
       
       var withdrawnStateId = await db.OfferStates
-         .Where(os => os.Name == "Withdrawn")
+         .Where(os => os.Name == OfferStateName.Withdrawn)
          .Select(os => os.Id)
          .FirstAsync();
       
       var (shipment, offers) = await ShipmentSeeder.SeedShipmentWithOffersAsync(
          db, 
-         "Offers Received", 
+         ShipmentStatusName.OffersReceived, 
          "Ton (t)", 
          500, [
-         new OfferSpec("Test Company 1", 500, "Rejected"),
-         new OfferSpec("Test Company 1", 500, "Expired"),
-         new OfferSpec("Test Company 1", 500, "Withdrawn"),
+         new OfferSpec("Test Company 1", 500, OfferStateName.Rejected),
+         new OfferSpec("Test Company 1", 500, OfferStateName.Expired),
+         new OfferSpec("Test Company 1", 500, OfferStateName.Withdrawn),
       ]);
 
       var rejectedOfferId = OfferIdByType(rejectedStateId);

@@ -1,5 +1,6 @@
 using CargoFlow.Data;
 using CargoFlow.Domain;
+using CargoFlow.Domain.Enums;
 using CargoFlow.Dtos;
 using CargoFlow.Helpers;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -59,7 +60,8 @@ public static class OfferEndpoints
     private static async Task<Results<CreatedAtRoute<OfferDto>, NotFound, ValidationProblem, ProblemHttpResult>> SubmitOffer(
        int shipmentId,
        SubmitOfferRequestBody body,
-       CargoFlowDbContext db)
+       CargoFlowDbContext db,
+       IReferenceData referenceData)
     {
         var shipment = await db.Shipments.FirstOrDefaultAsync(s => s.Id == shipmentId);
         if (shipment is null)
@@ -83,33 +85,10 @@ public static class OfferEndpoints
                 detail: $"you've already a submitted an offer for this shipment #{shipmentId}");
         }
 
-        var openForOffersStatusId = await db.ShipmentStatuses
-            .Where(ss => ss.Name == "Open for Offers")
-            .Select(ss => ss.Id)
-            .FirstOrDefaultAsync();
+        var offerReceivedStatusId = referenceData.GetShipmentStatusId(ShipmentStatusName.OffersReceived);
+        var openForOffersStatusId = referenceData.GetShipmentStatusId(ShipmentStatusName.OpenForOffers);
         
-        if (openForOffersStatusId == 0)
-        {
-            return TypedResults.Problem(
-                statusCode: StatusCodes.Status500InternalServerError,
-                title: "Database Configuration Error",
-                detail: "Required system lookup data ('Open for Offers' status) is missing. Please ensure the database seeder has been executed.");
-        }
-        
-        var offerReceivedStatus = await db.ShipmentStatuses
-            .Where(ss => ss.Name == "Offers Received")
-            .Select(ss => ss.Id)
-            .FirstOrDefaultAsync();
-
-        if (offerReceivedStatus == 0)
-        {
-            return TypedResults.Problem(
-                statusCode: StatusCodes.Status500InternalServerError,
-                title: "Database Configuration Error",
-                detail: "Required system lookup data ('Offers Received' status) is missing. Please ensure the database seeder has been executed.");
-        }
-        
-        if (shipment.ShipmentStatusId != offerReceivedStatus && shipment.ShipmentStatusId != openForOffersStatusId)
+        if (shipment.ShipmentStatusId != offerReceivedStatusId && shipment.ShipmentStatusId != openForOffersStatusId)
         {
             return TypedResults.Problem(
                 statusCode: StatusCodes.Status409Conflict,
@@ -117,24 +96,13 @@ public static class OfferEndpoints
                 detail: $"shipment with id {shipmentId} does not have 'Open for Offers' or 'Offers Received' status");
         }
 
-        var offerStateId = await db.OfferStates
-            .Where(os => os.Name == "Submitted")
-            .Select(os => os.Id)
-            .FirstOrDefaultAsync();
-
-        if (offerStateId == 0)
-        {
-            return TypedResults.Problem(
-                statusCode: StatusCodes.Status500InternalServerError, 
-                title: "Database Configuration Error", 
-                detail: "Required system lookup data ('Submitted' state) is missing. Please ensure the database seeder has been executed.");
-        }
+        var submittedStateId = referenceData.GetOfferStateId(OfferStateName.Submitted);
 
         var offer = new Offer()
         {
             CompanyId = body.CompanyId,
             ShipmentId = shipmentId,
-            OfferStateId = offerStateId,
+            OfferStateId = submittedStateId,
             Price = body.Price,
             SubmittedDate = DateTime.UtcNow,
             HasWon = false
@@ -144,7 +112,7 @@ public static class OfferEndpoints
 
         if (shipment.ShipmentStatusId == openForOffersStatusId)
         {
-            shipment.ShipmentStatusId = offerReceivedStatus;
+            shipment.ShipmentStatusId = offerReceivedStatusId;
         }
 
         try
@@ -201,7 +169,7 @@ public static class OfferEndpoints
             });
     }
 
-    private static async Task<Results<NoContent, ProblemHttpResult>> AwardOffer(int shipmentId, int offerId, CargoFlowDbContext db)
+    private static async Task<Results<NoContent, ProblemHttpResult>> AwardOffer(int shipmentId, int offerId, CargoFlowDbContext db, IReferenceData referenceData)
     {
         var shipment = await db.Shipments.FirstOrDefaultAsync(s => s.Id == shipmentId);
         if (shipment is null)
@@ -225,10 +193,9 @@ public static class OfferEndpoints
             );
         }
 
-        var validShipmentStatusIds = await db.ShipmentStatuses
-            .Where(ss => ss.Name == "Open for Offers" || ss.Name == "Offers Received")
-            .Select(ss => ss.Id)
-            .ToListAsync();
+        var openStatusId = referenceData.GetShipmentStatusId(ShipmentStatusName.OpenForOffers);
+        var receivedStatusId = referenceData.GetShipmentStatusId(ShipmentStatusName.OffersReceived);
+        List<int> validShipmentStatusIds = [openStatusId, receivedStatusId];
 
         if (validShipmentStatusIds.Count < 2)
         {
@@ -247,19 +214,7 @@ public static class OfferEndpoints
             );
         }
 
-        var submittedStateId = await db.OfferStates
-            .Where(os => os.Name == "Submitted")
-            .Select(os => os.Id)
-            .FirstOrDefaultAsync();
-        
-        if (submittedStateId == 0)
-        {
-            return TypedResults.Problem(
-                statusCode: StatusCodes.Status500InternalServerError,
-                title: "Database Configuration Error",
-                detail: "Required system lookup data ('Submitted' state) is missing. Please ensure the database seeder has been executed."
-            );
-        }
+        var submittedStateId = referenceData.GetOfferStateId(OfferStateName.Submitted);
         
         if (offer.OfferStateId != submittedStateId)
         {
@@ -268,49 +223,10 @@ public static class OfferEndpoints
                 title: "Offer State Conflict",
                 detail: $"offer #{offer.Id} cannot be awarded, only 'Submitted' offers can");           
         }
-        
-        var acceptedStateId = await db.OfferStates
-            .Where(os => os.Name == "Accepted")
-            .Select(os => os.Id)
-            .FirstOrDefaultAsync();
-        
-        if (acceptedStateId == 0)
-        {
-            return TypedResults.Problem(
-                statusCode: StatusCodes.Status500InternalServerError,
-                title: "Database Configuration Error",
-                detail: "Required system lookup data ('Accepted' state) is missing. Please ensure the database seeder has been executed."
-            );
-        }
-        
-        var rejectedStateId = await db.OfferStates
-            .Where(os => os.Name == "Rejected")
-            .Select(os => os.Id)
-            .FirstOrDefaultAsync();
-        
-        if (rejectedStateId is 0)
-        {
-            return TypedResults.Problem(
-                statusCode: StatusCodes.Status500InternalServerError,
-                title: "Database Configuration Error",
-                detail: "Required system lookup data ('Rejected' state) is missing. Please ensure the database seeder has been executed."
-            );
-        }
-        
-        var shipmentStatusId = await db.ShipmentStatuses
-            .Where(ss => ss.Name == "Awarded")
-            .Select(ss => ss.Id)
-            .FirstOrDefaultAsync();
 
-        if (shipmentStatusId == 0)
-        {
-            
-            return TypedResults.Problem(
-                statusCode: StatusCodes.Status500InternalServerError,
-                title: "Database Configuration Error",
-                detail: "Required system lookup data ('Awarded' status) is missing. Please ensure the database seeder has been executed."
-            );
-        }
+        var rejectedStateId = referenceData.GetOfferStateId(OfferStateName.Rejected);
+        var acceptedStateId = referenceData.GetOfferStateId(OfferStateName.Accepted);
+        var awardedStatusId = referenceData.GetShipmentStatusId(ShipmentStatusName.Awarded);
 
         var otherOffers = await db.Offers
             .Where(o => o.Id != offerId && o.ShipmentId == shipmentId)
@@ -323,7 +239,7 @@ public static class OfferEndpoints
             
         offer.OfferStateId = acceptedStateId;
         offer.HasWon = true;
-        shipment.ShipmentStatusId = shipmentStatusId;
+        shipment.ShipmentStatusId = awardedStatusId;
 
         try
         {
@@ -349,7 +265,7 @@ public static class OfferEndpoints
     }
 
     private static async Task<Results<NoContent, ProblemHttpResult>> WithdrawOffer(int shipmentId, int offerId,
-        CargoFlowDbContext db)
+        CargoFlowDbContext db, IReferenceData referenceData)
     {
         var shipment = await db.Shipments.FirstOrDefaultAsync(s => s.Id == shipmentId);
         if (shipment is null)
@@ -369,32 +285,9 @@ public static class OfferEndpoints
                 detail: $"offer #{offerId} is either does not exist or does not belong to shipment #{shipmentId}");
         }
 
-        var openForOffersStatusId = await db.ShipmentStatuses
-            .Where(ss => ss.Name == "Open for Offers")
-            .Select(ss => ss.Id)
-            .FirstOrDefaultAsync();
-
-        if (openForOffersStatusId == 0)
-        {
-            return TypedResults.Problem(
-                statusCode: StatusCodes.Status500InternalServerError,
-                title: "Database Configuration Error",
-                detail: "Required system lookup data ('Open For Offers' status) is missing. Please ensure the database seeder has been executed.");
-        }
-
-        var offersReceivedStatusId = await db.ShipmentStatuses
-            .Where(ss => ss.Name == "Offers Received")
-            .Select(ss => ss.Id)
-            .FirstOrDefaultAsync();
+        var offersReceivedStatusId = referenceData.GetShipmentStatusId(ShipmentStatusName.OffersReceived);
+        var openForOffersStatusId = referenceData.GetShipmentStatusId(ShipmentStatusName.OpenForOffers);
         
-        if (offersReceivedStatusId == 0)
-        {
-            return TypedResults.Problem(
-                statusCode: StatusCodes.Status500InternalServerError,
-                title: "Database Configuration Error",
-                detail: "Required system lookup data ('Offers Received' status) is missing. Please ensure the database seeder has been executed.");
-        }
-
         if (shipment.ShipmentStatusId != offersReceivedStatusId
             && shipment.ShipmentStatusId != openForOffersStatusId)
         {
@@ -404,18 +297,7 @@ public static class OfferEndpoints
                 detail: $"shipment #{shipmentId} does not have status 'Offers Received' or 'Open for Offers'");
         }
 
-        var submittedStateId = await db.OfferStates
-            .Where(os => os.Name == "Submitted")
-            .Select(os => os.Id)
-            .FirstOrDefaultAsync();
-
-        if (submittedStateId == 0)
-        {
-            return TypedResults.Problem(
-                statusCode: StatusCodes.Status500InternalServerError,
-                title: "Database Configuration Error",
-                detail: "Required system lookup data ('Submitted' state) is missing. Please ensure the database seeder has been executed.");           
-        }
+        var submittedStateId = referenceData.GetOfferStateId(OfferStateName.Submitted);
 
         if (offer.OfferStateId != submittedStateId)
         {
@@ -425,18 +307,7 @@ public static class OfferEndpoints
                 detail: $"offer #{offerId} does not have 'Submitted' state");           
         }
 
-        var withdrawnStateId = await db.OfferStates
-            .Where(os => os.Name == "Withdrawn")
-            .Select(os => os.Id)
-            .FirstOrDefaultAsync();
-
-        if (withdrawnStateId == 0)
-        {
-            return TypedResults.Problem(
-                statusCode: StatusCodes.Status500InternalServerError,
-                title: "Database Configuration Error",
-                detail: "Required system lookup data ('Withdrawn' state) is missing. Please ensure the database seeder has been executed.");           
-        }
+        var withdrawnStateId = referenceData.GetOfferStateId(OfferStateName.Withdrawn);
 
         offer.OfferStateId = withdrawnStateId;
 

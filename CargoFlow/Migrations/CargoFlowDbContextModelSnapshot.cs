@@ -224,7 +224,7 @@ namespace CargoFlow.Migrations
                         new
                         {
                             Id = 2,
-                            Name = "Under Review"
+                            Name = "UnderReview"
                         },
                         new
                         {
@@ -328,12 +328,12 @@ namespace CargoFlow.Migrations
                         new
                         {
                             Id = 2,
-                            Name = "Open for Offers"
+                            Name = "OpenForOffers"
                         },
                         new
                         {
                             Id = 3,
-                            Name = "Offers Received"
+                            Name = "OffersReceived"
                         },
                         new
                         {
@@ -343,7 +343,7 @@ namespace CargoFlow.Migrations
                         new
                         {
                             Id = 5,
-                            Name = "In Transit"
+                            Name = "InTransit"
                         },
                         new
                         {

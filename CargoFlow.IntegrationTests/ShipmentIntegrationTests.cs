@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using CargoFlow.Data;
+using CargoFlow.Domain.Enums;
 using CargoFlow.IntegrationTests.Helpers;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -21,18 +22,18 @@ public class ShipmentIntegrationTests(LocalSqlWebApplicationFactory<Program> fac
       var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
 
       var shipments = await ShipmentSeeder.SeedShipmentListWithUniqueStatusAsync(db, [
-         new ShipmentSpec("Draft", "Ton (t)", 30),
-         new ShipmentSpec("Open for Offers", "Ton (t)", 30),
-         new ShipmentSpec("Offers Received", "Ton (t)", 30),
+         new ShipmentSpec(ShipmentStatusName.Draft, "Ton (t)", 30),
+         new ShipmentSpec(ShipmentStatusName.OpenForOffers, "Ton (t)", 30),
+         new ShipmentSpec(ShipmentStatusName.OffersReceived, "Ton (t)", 30),
       ]);
 
-      var draftResponse = await _client.PostAsJsonAsync($"/api/shipments/{shipments["Draft"].Id}/cancel", new { });
+      var draftResponse = await _client.PostAsJsonAsync($"/api/shipments/{shipments[ShipmentStatusName.Draft].Id}/cancel", new { });
       Assert.Equal(HttpStatusCode.NoContent, draftResponse.StatusCode);
       
-      var openResponse = await _client.PostAsJsonAsync($"/api/shipments/{shipments["Open for Offers"].Id}/cancel", new { });
+      var openResponse = await _client.PostAsJsonAsync($"/api/shipments/{shipments[ShipmentStatusName.OpenForOffers].Id}/cancel", new { });
       Assert.Equal(HttpStatusCode.NoContent, openResponse.StatusCode);
       
-      var receivedResponse = await _client.PostAsJsonAsync($"/api/shipments/{shipments["Offers Received"].Id}/cancel", new { });
+      var receivedResponse = await _client.PostAsJsonAsync($"/api/shipments/{shipments[ShipmentStatusName.OffersReceived].Id}/cancel", new { });
       Assert.Equal(HttpStatusCode.NoContent, receivedResponse.StatusCode);
    
       using var verifyScope = factory.Services.CreateScope();
@@ -46,7 +47,7 @@ public class ShipmentIntegrationTests(LocalSqlWebApplicationFactory<Program> fac
          .Select(s => s.ShipmentStatus.Name)
          .ToListAsync();
       
-      Assert.All(shipmentsStatuses, s => Assert.Equal("Cancelled", s));
+      Assert.All(shipmentsStatuses, s => Assert.Equal(ShipmentStatusName.Cancelled, s));
    }
 
    [Fact]
@@ -56,11 +57,11 @@ public class ShipmentIntegrationTests(LocalSqlWebApplicationFactory<Program> fac
       var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
 
       var shipments = await ShipmentSeeder.SeedShipmentListWithUniqueStatusAsync(db, [
-         new ShipmentSpec("Awarded", "Ton (t)", 20),
-         new ShipmentSpec("In Transit", "Ton (t)", 20),
-         new ShipmentSpec("Delivered", "Ton (t)", 20),
-         new ShipmentSpec("Completed", "Ton (t)", 20),
-         new ShipmentSpec("Cancelled", "Ton (t)", 20),
+         new ShipmentSpec(ShipmentStatusName.Awarded, "Ton (t)", 20),
+         new ShipmentSpec(ShipmentStatusName.InTransit, "Ton (t)", 20),
+         new ShipmentSpec(ShipmentStatusName.Delivered, "Ton (t)", 20),
+         new ShipmentSpec(ShipmentStatusName.Completed, "Ton (t)", 20),
+         new ShipmentSpec(ShipmentStatusName.Cancelled, "Ton (t)", 20),
       ]);
 
       var shipmentIds = shipments.Values.Select(s => s.Id).ToList();
@@ -107,12 +108,12 @@ public class ShipmentIntegrationTests(LocalSqlWebApplicationFactory<Program> fac
       using var scope = factory.Services.CreateScope();
       var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
 
-      var (shipment, offers) = await ShipmentSeeder.SeedShipmentWithOffersAsync(db, "Offers Received", "Ton (t)", 20, [
-         new OfferSpec("Test Company", 1200, "Accepted", true),
-         new OfferSpec("Test Company", 1300, "Submitted"),
-         new OfferSpec("Test Company", 1100, "Rejected"),
-         new OfferSpec("Test Company", 1000, "Expired"),
-         new OfferSpec("Test Company", 1400, "Withdrawn")
+      var (shipment, offers) = await ShipmentSeeder.SeedShipmentWithOffersAsync(db, ShipmentStatusName.OffersReceived, "Ton (t)", 20, [
+         new OfferSpec("Test Company", 1200, OfferStateName.Accepted, true),
+         new OfferSpec("Test Company", 1300, OfferStateName.Submitted),
+         new OfferSpec("Test Company", 1100, OfferStateName.Rejected),
+         new OfferSpec("Test Company", 1000, OfferStateName.Expired),
+         new OfferSpec("Test Company", 1400, OfferStateName.Withdrawn)
       ]);
 
       var response = await _client.PostAsJsonAsync($"/api/shipments/{shipment.Id}/cancel", new { });
@@ -140,12 +141,12 @@ public class ShipmentIntegrationTests(LocalSqlWebApplicationFactory<Program> fac
       var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
 
       var shipment = await ShipmentSeeder.SeedShipmentListWithUniqueStatusAsync(db, [
-         new ShipmentSpec("Draft", "Ton (t)", 200)
+         new ShipmentSpec(ShipmentStatusName.Draft, "Ton (t)", 200)
       ]);
 
-      var firstCancelRequest = _client.PostAsJsonAsync($"/api/shipments/{shipment["Draft"].Id}/cancel", new { });
-      var secondCancelRequest = _client.PostAsJsonAsync($"/api/shipments/{shipment["Draft"].Id}/cancel", new { });
-      var thirdCancelRequest = _client.PostAsJsonAsync($"/api/shipments/{shipment["Draft"].Id}/cancel", new { });
+      var firstCancelRequest = _client.PostAsJsonAsync($"/api/shipments/{shipment[ShipmentStatusName.Draft].Id}/cancel", new { });
+      var secondCancelRequest = _client.PostAsJsonAsync($"/api/shipments/{shipment[ShipmentStatusName.Draft].Id}/cancel", new { });
+      var thirdCancelRequest = _client.PostAsJsonAsync($"/api/shipments/{shipment[ShipmentStatusName.Draft].Id}/cancel", new { });
       
       var responses = await Task.WhenAll(firstCancelRequest, secondCancelRequest, thirdCancelRequest);
       

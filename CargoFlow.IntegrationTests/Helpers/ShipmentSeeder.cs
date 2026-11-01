@@ -1,12 +1,13 @@
 using CargoFlow.Data;
 using CargoFlow.Domain;
+using CargoFlow.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace CargoFlow.IntegrationTests.Helpers;
 
-public record OfferSpec(string CompanyName, decimal Price, string StateName, bool HasWon = false);
+public record OfferSpec(string CompanyName, decimal Price, OfferStateName StateName, bool HasWon = false);
 
-public record ShipmentSpec(string ShipmentStatus, string WeightType, decimal Weight);
+public record ShipmentSpec(ShipmentStatusName ShipmentStatus, string WeightType, decimal Weight);
 public static class ShipmentSeeder
 {
     private static (Address pickup, Address destination) GenerateUniqueAddresses()
@@ -38,7 +39,7 @@ public static class ShipmentSeeder
     
     public static async Task<(Shipment, List<Offer>)> SeedShipmentWithOffersAsync(
         CargoFlowDbContext db, 
-        string shipmentStatus, 
+        ShipmentStatusName shipmentStatus, 
         string weightType, 
         decimal weight, 
         OfferSpec[] offerSpecs)
@@ -108,7 +109,7 @@ public static class ShipmentSeeder
         return (shipment, offers);
     }
 
-    public static async Task<Dictionary<string, Shipment>> SeedShipmentListWithUniqueStatusAsync(
+    public static async Task<Dictionary<ShipmentStatusName, Shipment>> SeedShipmentListWithUniqueStatusAsync(
         CargoFlowDbContext db,
         ShipmentSpec[] shipmentSpecs,
         CancellationToken ct = default
@@ -116,7 +117,7 @@ public static class ShipmentSeeder
     {
         if (shipmentSpecs is {Length: 0})
         {
-            return new Dictionary<string, Shipment>();
+            return new Dictionary<ShipmentStatusName, Shipment>();
         }
 
         var duplicateStatuses = shipmentSpecs
