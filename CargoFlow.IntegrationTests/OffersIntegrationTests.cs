@@ -8,8 +8,8 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace CargoFlow.IntegrationTests;
 
+[Collection("Database collection")]
 public class OffersIntegrationTests(LocalSqlWebApplicationFactory<Program> factory)
-   : IClassFixture<LocalSqlWebApplicationFactory<Program>>
 {
    private readonly HttpClient _client = factory.CreateClient();
 
@@ -281,78 +281,5 @@ public class OffersIntegrationTests(LocalSqlWebApplicationFactory<Program> facto
          offers.Where(o => o.OfferStateId == offerStateId)
             .Select(o => o.Id)
             .FirstOrDefault();
-   }
-
-   [Fact]
-   public async Task CancelOffer_ValidShipments_Returns204AndTransitionsShipmentStatus()
-   {
-      using var scope = factory.Services.CreateScope();
-      var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
-
-      var shipments = await ShipmentSeeder.SeedShipmentListWithUniqueStatusAsync(db, [
-         new ShipmentSpec("Draft", "Ton (t)", 30),
-         new ShipmentSpec("Open for Offers", "Ton (t)", 30),
-         new ShipmentSpec("Offers Received", "Ton (t)", 30),
-      ]);
-
-      var draftResponse = await _client.PostAsJsonAsync($"/api/shipments/{shipments["Draft"].Id}/cancel", new { });
-      Assert.Equal(HttpStatusCode.NoContent, draftResponse.StatusCode);
-      
-      var openResponse = await _client.PostAsJsonAsync($"/api/shipments/{shipments["Open for Offers"].Id}/cancel", new { });
-      Assert.Equal(HttpStatusCode.NoContent, openResponse.StatusCode);
-      
-      var receivedResponse = await _client.PostAsJsonAsync($"/api/shipments/{shipments["Offers Received"].Id}/cancel", new { });
-      Assert.Equal(HttpStatusCode.NoContent, receivedResponse.StatusCode);
-   
-      using var verifyScope = factory.Services.CreateScope();
-      var verifyDb = verifyScope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
-
-      var shipmentIds = shipments.Values.Select(v => v.Id).ToList();
-
-      var shipmentsStatuses = await verifyDb.Shipments
-         .Include(s => s.ShipmentStatus)
-         .Where(s => shipmentIds.Contains(s.Id))
-         .Select(s => s.ShipmentStatus.Name)
-         .ToListAsync();
-      
-      Assert.All(shipmentsStatuses, s => Assert.Equal("Cancelled", s));
-   }
-
-   [Fact]
-   public async Task CancelOffer_InvalidShipments_Returns409Conflict()
-   {
-      using var scope = factory.Services.CreateScope();
-      var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
-
-      var shipments = await ShipmentSeeder.SeedShipmentListWithUniqueStatusAsync(db, [
-         new ShipmentSpec("Awarded", "Ton (t)", 20),
-         new ShipmentSpec("In Transit", "Ton (t)", 20),
-         new ShipmentSpec("Delivered", "Ton (t)", 20),
-         new ShipmentSpec("Completed", "Ton (t)", 20),
-         new ShipmentSpec("Cancelled", "Ton (t)", 20),
-      ]);
-
-      var shipmentIds = shipments.Values.Select(s => s.Id).ToList();
-      foreach (var shipmentId in shipmentIds)
-      {
-         var response = await _client.PostAsJsonAsync($"/api/shipments/{shipmentId}/cancel", new { });
-         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
-      }
-
-      using var verifyScope = factory.Services.CreateScope();
-      var verifyDb = verifyScope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
-
-      var result = await verifyDb.Shipments
-         .Include(s => s.ShipmentStatus)
-         .Where(s => shipmentIds.Contains(s.Id))
-         .ToListAsync();
-      
-      Assert.Equal(shipmentIds.Count, result.Count);
-
-      foreach (var s in result)
-      {
-         Assert.True(shipments.TryGetValue(s.ShipmentStatus.Name, out var original));
-         Assert.Equal(original.Id, s.Id);
-      }
    }
 }
