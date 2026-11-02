@@ -260,7 +260,7 @@ public class ShipmentIntegrationTests(LocalSqlWebApplicationFactory<Program> fac
    }
 
    [Fact]
-   public async Task StartShipment_ConcurrentRequest_ShouldReturns409Conflict()
+   public async Task StartShipment_ConcurrentRequests_ShouldReturns409Conflict()
    {
       using var scope = factory.Services.CreateScope();
       var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
@@ -288,5 +288,114 @@ public class ShipmentIntegrationTests(LocalSqlWebApplicationFactory<Program> fac
       Assert.Equal("Update Concurrency Exception", problemHttpResult.ProblemDetails.Title);
       Assert.Equal($"Shipment #{shipment.Id} was modified or started by another concurrent request", problemHttpResult.ProblemDetails.Detail);
 
+   }
+
+   [Fact]
+   public async Task DeliverShipment_MissingShipments_ShouldReturns404NotFound()
+   {
+      using var scope = factory.Services.CreateScope();
+      var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+
+      var maxId = await db.Shipments.MaxAsync(s => s.Id);
+      var nonExistenceId = maxId + 100;
+
+      var response = await _client.PostAsJsonAsync($"/api/shipments/{nonExistenceId}/deliver", new { });
+      
+      Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+   }
+
+   [Fact]
+   public async Task DeliverShipment_NotStartedShipments_ShouldReturns409Conflict()
+   {
+      using var scope = factory.Services.CreateScope();
+      var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+
+      var shipments = await ShipmentSeeder.SeedShipmentListWithUniqueStatusAsync(db, [
+         new ShipmentSpec(ShipmentStatusName.Draft, "Ton (t)", 20),
+         new ShipmentSpec(ShipmentStatusName.OffersReceived, "Ton (t)", 20),
+         new ShipmentSpec(ShipmentStatusName.OpenForOffers, "Ton (t)", 20),
+         new ShipmentSpec(ShipmentStatusName.Awarded, "Ton (t)", 20),
+         new ShipmentSpec(ShipmentStatusName.Delivered, "Ton (t)", 20),
+         new ShipmentSpec(ShipmentStatusName.Cancelled, "Ton (t)", 20),
+         new ShipmentSpec(ShipmentStatusName.Completed, "Ton (t)", 20),
+      ]);
+
+      var ids = shipments.Values.Select(s => s.Id).ToList();
+      var shipmentList = shipments.Values.ToList();
+      
+      foreach (var id in ids)
+      {
+         var response = await _client.PostAsJsonAsync($"/api/shipments/{id}/deliver", new { });
+         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+      }
+
+      using var verifyScope = factory.Services.CreateScope();
+      var verifyDb = verifyScope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+
+      var verifyShipments = await verifyDb.Shipments
+         .Where(s => ids.Contains(s.Id))
+         .ToListAsync();
+      
+      Assert.Equal(verifyShipments.Count, shipments.Count);
+      Assert.All(verifyShipments, vs => Assert.Equal(vs.ShipmentStatusId, shipmentList
+         .First(s => s.Id == vs.Id).ShipmentStatusId));
+
+
+   }
+
+   [Fact]
+   public async Task DeliverShipment_InTransitShipments_ShouldReturns204NoContentAndTransitionStatus()
+   {
+      using var scope = factory.Services.CreateScope();
+      var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+
+      var shipment = await ShipmentSeeder.SeedShipmentListWithUniqueStatusAsync(db, [
+         new ShipmentSpec(ShipmentStatusName.InTransit, "Ton (t)", 200)
+      ]);
+
+      var inTransitShipment = shipment[ShipmentStatusName.InTransit];
+
+      var response = await _client.PostAsJsonAsync($"/api/shipments/{inTransitShipment.Id}/deliver", new { });
+      
+      Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+
+      using var verifyScope = factory.Services.CreateScope();
+      var verifyDb = verifyScope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+
+      var verifyShipment = await verifyDb.Shipments.FirstAsync(s => s.Id == inTransitShipment.Id);
+      var deliveredStatus = await verifyDb.ShipmentStatuses.FirstAsync(ss => ss.Name == ShipmentStatusName.Delivered);
+      Assert.NotNull(verifyShipment);
+      Assert.Equal(deliveredStatus.Id, verifyShipment.ShipmentStatusId);
+   }
+
+   [Fact]
+   public async Task DeliverShipment_ConcurrentRequests_ShouldReturns409Conflict()
+   {
+      using var scope = factory.Services.CreateScope();
+      var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+      var referenceData = scope.ServiceProvider.GetRequiredService<IReferenceData>();
+
+      var (shipment, _) =
+         await ShipmentSeeder.SeedShipmentWithOffersAsync(db, ShipmentStatusName.InTransit, "Ton (t)", 200, []);
+
+      using var concurrentScope = factory.Services.CreateScope();
+      var concurrentDb = concurrentScope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+
+      var concurrentShipment = await concurrentDb.Shipments.FirstAsync(s => s.Id == shipment.Id);
+      var deliveredStatusId =
+         await concurrentDb.ShipmentStatuses
+            .Where(ss => ss.Name == ShipmentStatusName.Delivered)
+            .Select(ss => ss.Id)
+            .FirstAsync();
+      concurrentShipment.ShipmentStatusId = deliveredStatusId;
+      await concurrentDb.SaveChangesAsync();
+
+      var result = await ShipmentEndpoints.DeliverShipment(shipment.Id, db, referenceData);
+
+      var problemHttpResult = Assert.IsType<ProblemHttpResult>(result.Result);
+      
+      Assert.Equal(StatusCodes.Status409Conflict, problemHttpResult.StatusCode);
+      Assert.Equal("Update Concurrency Conflict", problemHttpResult.ProblemDetails.Title);
+      Assert.Equal($"Shipment {shipment.Id} was modified or delivered by another concurrent request", problemHttpResult.ProblemDetails.Detail);
    }
 }

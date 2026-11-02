@@ -19,6 +19,7 @@ public static class ShipmentEndpoints
         group.MapPost("/{id:int}/open-for-offers", OpenForOffers);
         group.MapPost("/{id:int}/cancel", CancelShipment);
         group.MapPost("/{id:int}/start", StartShipment);
+        group.MapPost("/{id:int}/deliver", DeliverShipment);
         return group;
     }
 
@@ -233,6 +234,46 @@ public static class ShipmentEndpoints
                 statusCode: StatusCodes.Status409Conflict,
                 title: "Update Concurrency Exception",
                 detail: $"Shipment #{id} was modified or started by another concurrent request");
+        }
+    }
+
+    public static async Task<Results<NoContent, ProblemHttpResult>> DeliverShipment(
+        int id, 
+        CargoFlowDbContext db, 
+        IReferenceData referenceData)
+    {
+        var shipment = await db.Shipments.FirstOrDefaultAsync(s => s.Id == id);
+        if (shipment is null)
+        {
+            return TypedResults.Problem(
+                statusCode: StatusCodes.Status404NotFound,
+                title: "Shipment Not Found",
+                detail: $"Shipment #{id} does not exists");
+        }
+
+        var inTransitStatusId = referenceData.GetShipmentStatusId(ShipmentStatusName.InTransit);
+        if (shipment.ShipmentStatusId != inTransitStatusId)
+        {
+            return TypedResults.Problem(
+                statusCode: StatusCodes.Status409Conflict,
+                title: "Shipment Status Conflict",
+                detail: $"Shipment #{id} has invalid status, only 'InTransit' shipments can be started");
+        }
+
+        var deliveredStatusId = referenceData.GetShipmentStatusId(ShipmentStatusName.Delivered);
+
+        shipment.ShipmentStatusId = deliveredStatusId;
+        try
+        {
+            await db.SaveChangesAsync();
+            return TypedResults.NoContent();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return TypedResults.Problem(
+                statusCode: StatusCodes.Status409Conflict,
+                title: "Update Concurrency Conflict",
+                detail: $"Shipment {id} was modified or delivered by another concurrent request");
         }
     }
 }
