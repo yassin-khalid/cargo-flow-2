@@ -2,7 +2,11 @@ using System.Net;
 using System.Net.Http.Json;
 using CargoFlow.Data;
 using CargoFlow.Domain.Enums;
+using CargoFlow.Endpoints;
+using CargoFlow.Helpers;
 using CargoFlow.IntegrationTests.Helpers;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -251,5 +255,38 @@ public class ShipmentIntegrationTests(LocalSqlWebApplicationFactory<Program> fac
       Assert.Equal(offers.Count, verifiedOffers.Count);
       Assert.All(verifiedOffers, vo => Assert.Equal(vo.OfferStateId, offers
          .First(o => o.Id == vo.Id).OfferStateId));
+      Assert.All(verifiedOffers, vo => Assert.Equal(vo.HasWon, 
+         offers.First(o => o.Id == vo.Id).HasWon));
+   }
+
+   [Fact]
+   public async Task StartShipment_ConcurrentRequest_ShouldReturns409Conflict()
+   {
+      using var scope = factory.Services.CreateScope();
+      var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+      var referenceData = scope.ServiceProvider.GetRequiredService<IReferenceData>();
+
+      var (shipment, _) =
+         await ShipmentSeeder.SeedShipmentWithOffersAsync(db, ShipmentStatusName.Awarded, "Ton (t)", 20, []);
+      
+
+      using var concurrentScope = factory.Services.CreateScope();
+      var concurrentDb = concurrentScope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+      var shipmentToModify = await concurrentDb.Shipments.FirstAsync(s => s.Id == shipment.Id);
+      var inTransitStatusId = await concurrentDb.ShipmentStatuses
+         .Where(ss => ss.Name == ShipmentStatusName.InTransit)
+         .Select(ss => ss.Id)
+         .FirstAsync();
+
+      shipmentToModify.ShipmentStatusId = inTransitStatusId;
+      await concurrentDb.SaveChangesAsync();
+
+      var result = await ShipmentEndpoints.StartShipment(shipment.Id, db, referenceData);
+      
+      var problemHttpResult = Assert.IsType<ProblemHttpResult>(result.Result);
+      Assert.Equal(StatusCodes.Status409Conflict, problemHttpResult.StatusCode);
+      Assert.Equal("Update Concurrency Exception", problemHttpResult.ProblemDetails.Title);
+      Assert.Equal($"Shipment #{shipment.Id} was modified or started by another concurrent request", problemHttpResult.ProblemDetails.Detail);
+
    }
 }

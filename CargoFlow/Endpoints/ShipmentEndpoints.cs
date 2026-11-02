@@ -198,7 +198,7 @@ public static class ShipmentEndpoints
 
     }
 
-    private static async Task<Results<NoContent, ProblemHttpResult>> StartShipment(int id, CargoFlowDbContext db, IReferenceData referenceData)
+    public static async Task<Results<NoContent, ProblemHttpResult>> StartShipment(int id, CargoFlowDbContext db, IReferenceData referenceData)
     {
         var shipment = await db.Shipments.FirstOrDefaultAsync(s => s.Id == id);
         if (shipment is null)
