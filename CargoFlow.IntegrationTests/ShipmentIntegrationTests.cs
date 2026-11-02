@@ -238,6 +238,12 @@ public class ShipmentIntegrationTests(LocalSqlWebApplicationFactory<Program> fac
       
       using var verifyScope = factory.Services.CreateScope();
       var verifyDb = verifyScope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+      var verifyShipment = await verifyDb.Shipments
+         .Include(s => s.ShipmentStatus)
+         .FirstOrDefaultAsync(s => s.Id == shipment.Id);
+      Assert.NotNull(verifyShipment);
+      Assert.Equal(ShipmentStatusName.InTransit, verifyShipment.ShipmentStatus.Name);
+         
       var verifiedOffers = await verifyDb.Offers
          .Where(o => ids.Contains(o.Id))
          .ToListAsync();
