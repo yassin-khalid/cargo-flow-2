@@ -374,6 +374,8 @@ public class ShipmentIntegrationTests(LocalSqlWebApplicationFactory<Program> fac
       Assert.Equal(verifyShipment.Offers.Count, offers.Count);
       Assert.All(verifyShipment.Offers, vso => Assert.Equal(vso.OfferStateId, offers
          .First(o => o.Id == vso.Id).OfferStateId));
+      Assert.All(verifyShipment.Offers, vso => Assert.Equal(vso.HasWon, offers
+         .First(o => o.Id == vso.Id).HasWon));
    }
 
    [Fact]
