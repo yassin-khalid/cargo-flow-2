@@ -18,7 +18,7 @@ public static class ShipmentEndpoints
         group.MapPost("/", CreateShipment);
         group.MapPost("/{id:int}/open-for-offers", OpenForOffers);
         group.MapPost("/{id:int}/cancel", CancelShipment);
-        group.MapPost("/{id}/start", StartShipment);
+        group.MapPost("/{id:int}/start", StartShipment);
         return group;
     }
 
