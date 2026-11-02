@@ -305,7 +305,7 @@ public class ShipmentIntegrationTests(LocalSqlWebApplicationFactory<Program> fac
    }
 
    [Fact]
-   public async Task DeliverShipment_NotStartedShipments_ShouldReturns409Conflict()
+   public async Task DeliverShipment_InvalidStatuses_ShouldReturns409Conflict()
    {
       using var scope = factory.Services.CreateScope();
       var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
@@ -349,11 +349,14 @@ public class ShipmentIntegrationTests(LocalSqlWebApplicationFactory<Program> fac
       using var scope = factory.Services.CreateScope();
       var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
 
-      var shipment = await ShipmentSeeder.SeedShipmentListWithUniqueStatusAsync(db, [
-         new ShipmentSpec(ShipmentStatusName.InTransit, "Ton (t)", 200)
-      ]);
-
-      var inTransitShipment = shipment[ShipmentStatusName.InTransit];
+      var (inTransitShipment, offers) = await ShipmentSeeder.SeedShipmentWithOffersAsync(db, ShipmentStatusName.InTransit,
+         "Ton (t)", 20, [
+            new OfferSpec("Test Company", 200, OfferStateName.Accepted, true),
+            new OfferSpec("Test Company", 200, OfferStateName.Rejected),
+            new OfferSpec("Test Company", 200, OfferStateName.Rejected),
+            new OfferSpec("Test Company", 200, OfferStateName.Rejected),
+            new OfferSpec("Test Company", 200, OfferStateName.Rejected),
+         ]);
 
       var response = await _client.PostAsJsonAsync($"/api/shipments/{inTransitShipment.Id}/deliver", new { });
       
@@ -362,10 +365,15 @@ public class ShipmentIntegrationTests(LocalSqlWebApplicationFactory<Program> fac
       using var verifyScope = factory.Services.CreateScope();
       var verifyDb = verifyScope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
 
-      var verifyShipment = await verifyDb.Shipments.FirstAsync(s => s.Id == inTransitShipment.Id);
+      var verifyShipment = await verifyDb.Shipments
+         .Include(s => s.Offers)
+         .FirstAsync(s => s.Id == inTransitShipment.Id);
       var deliveredStatus = await verifyDb.ShipmentStatuses.FirstAsync(ss => ss.Name == ShipmentStatusName.Delivered);
       Assert.NotNull(verifyShipment);
       Assert.Equal(deliveredStatus.Id, verifyShipment.ShipmentStatusId);
+      Assert.Equal(verifyShipment.Offers.Count, offers.Count);
+      Assert.All(verifyShipment.Offers, vso => Assert.Equal(vso.OfferStateId, offers
+         .First(o => o.Id == vso.Id).OfferStateId));
    }
 
    [Fact]

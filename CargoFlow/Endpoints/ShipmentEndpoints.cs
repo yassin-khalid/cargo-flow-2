@@ -257,7 +257,7 @@ public static class ShipmentEndpoints
             return TypedResults.Problem(
                 statusCode: StatusCodes.Status409Conflict,
                 title: "Shipment Status Conflict",
-                detail: $"Shipment #{id} has invalid status, only 'InTransit' shipments can be started");
+                detail: $"Shipment #{id} has invalid status, only 'InTransit' shipments can be delivered");
         }
 
         var deliveredStatusId = referenceData.GetShipmentStatusId(ShipmentStatusName.Delivered);
