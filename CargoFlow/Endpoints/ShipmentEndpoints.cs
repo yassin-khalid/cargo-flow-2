@@ -1,3 +1,4 @@
+using System.Net;
 using CargoFlow.Data;
 using CargoFlow.Domain;
 using CargoFlow.Domain.Enums;
@@ -17,7 +18,7 @@ public static class ShipmentEndpoints
         group.MapPost("/", CreateShipment);
         group.MapPost("/{id:int}/open-for-offers", OpenForOffers);
         group.MapPost("/{id:int}/cancel", CancelShipment);
-        // group.MapPost("/{id}/start", StartShipment);
+        group.MapPost("/{id}/start", StartShipment);
         return group;
     }
 
@@ -197,17 +198,41 @@ public static class ShipmentEndpoints
 
     }
 
-    // private static async Task<Results<NoContent, ProblemHttpResult>> StartShipment(int id, CargoFlowDbContext db)
-    // {
-    //     var shipment = await db.Shipments.FirstOrDefaultAsync(s => s.Id == id);
-    //     if (shipment is null)
-    //     {
-    //         return TypedResults.Problem(
-    //             statusCode: StatusCodes.Status404NotFound,
-    //             title: "No Shipment Found",
-    //             detail: $"Shipment #{id} does not exist");
-    //     }
-    //     
-    //     var awardedStatusId = await db.ShipmentStatuses.Where()
-    // }
+    private static async Task<Results<NoContent, ProblemHttpResult>> StartShipment(int id, CargoFlowDbContext db, IReferenceData referenceData)
+    {
+        var shipment = await db.Shipments.FirstOrDefaultAsync(s => s.Id == id);
+        if (shipment is null)
+        {
+            return TypedResults.Problem(
+                statusCode: StatusCodes.Status404NotFound,
+                title: "No Shipment Found",
+                detail: $"Shipment #{id} does not exist");
+        }
+
+        var awardedStatusId = referenceData.GetShipmentStatusId(ShipmentStatusName.Awarded);
+
+        if (shipment.ShipmentStatusId != awardedStatusId)
+        {
+            return TypedResults.Problem(
+                statusCode: StatusCodes.Status409Conflict,
+                title: "Shipment Status Conflict",
+                detail: $"Shipment #{id} has invalid status, only 'Awarded' shipments can be started");
+        }
+
+        var inTransitStatusId = referenceData.GetShipmentStatusId(ShipmentStatusName.InTransit);
+
+        shipment.ShipmentStatusId = inTransitStatusId;
+        try
+        {
+            await db.SaveChangesAsync();
+            return TypedResults.NoContent();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return TypedResults.Problem(
+                statusCode: StatusCodes.Status409Conflict,
+                title: "Update Concurrency Exception",
+                detail: $"Shipment #{id} was modified or started by another concurrent request");
+        }
+    }
 }

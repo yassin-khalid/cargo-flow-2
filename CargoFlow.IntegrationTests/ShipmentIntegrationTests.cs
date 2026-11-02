@@ -163,4 +163,87 @@ public class ShipmentIntegrationTests(LocalSqlWebApplicationFactory<Program> fac
          Assert.True(problemDetail.Title is "Shipment Status Conflict" or "Update Concurrency Conflict");
       }
    }
+
+   [Fact]
+   public async Task StartShipment_MissingShipments_Returns404NotFound()
+   {
+      using var scope = factory.Services.CreateScope();
+      var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+
+      var maxShipmentId = await db.Shipments.MaxAsync(s => s.Id);
+      var nonExistenceId = maxShipmentId + 100;
+
+      var response = await _client.PostAsJsonAsync($"/api/shipments/{nonExistenceId}/start", new { });
+      
+      Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+   }
+
+   [Fact]
+   public async Task StartShipment_NotAwardedShipments_ShouldReturns409Conflict()
+   {
+      using var scope = factory.Services.CreateScope();
+      var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+
+      var shipment = await ShipmentSeeder.SeedShipmentListWithUniqueStatusAsync(db, [
+         new ShipmentSpec(ShipmentStatusName.Draft, "Ton (t)", 20),
+         new ShipmentSpec(ShipmentStatusName.OpenForOffers, "Ton (t)", 20),
+         new ShipmentSpec(ShipmentStatusName.OffersReceived, "Ton (t)", 20),
+         new ShipmentSpec(ShipmentStatusName.InTransit, "Ton (t)", 20),
+         new ShipmentSpec(ShipmentStatusName.Delivered, "Ton (t)", 20),
+         new ShipmentSpec(ShipmentStatusName.Completed, "Ton (t)", 20),
+         new ShipmentSpec(ShipmentStatusName.Cancelled, "Ton (t)", 20),
+      ]);
+
+      var ids = shipment.Values.Select(s => s.Id).ToList();
+      var shipments = shipment.Values.ToList();
+
+      foreach (var id in ids)
+      {
+         var response = await _client.PostAsJsonAsync($"/api/shipments/{id}/start", new { });
+         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+      }
+
+      using var verifyScope = factory.Services.CreateScope();
+      var verifyDb = verifyScope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+
+      var verifyShipments = await verifyDb.Shipments
+         .Where(s => ids.Contains(s.Id))
+         .ToListAsync();
+      
+      Assert.Equal(verifyShipments.Count, shipments.Count);
+      Assert.All(verifyShipments, vs => Assert.Equal(vs.ShipmentStatusId, shipments
+         .First(s => s.Id == vs.Id).ShipmentStatusId));
+   }
+
+   [Fact]
+   public async Task StartShipment_AwardedShipments_ShouldReturns204NoContent()
+   {
+      using var scope = factory.Services.CreateScope();
+      var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+
+      var (shipment, offers) = await ShipmentSeeder.SeedShipmentWithOffersAsync(db, ShipmentStatusName.Awarded,
+         "Ton (t)", 20, [
+            new OfferSpec("Test Company", 1200, OfferStateName.Accepted, true),
+            new OfferSpec("Test Company", 1100, OfferStateName.Rejected),
+            new OfferSpec("Test Company", 900, OfferStateName.Rejected),
+            new OfferSpec("Test Company", 1000, OfferStateName.Rejected),
+            new OfferSpec("Test Company", 1000, OfferStateName.Rejected),
+         ]);
+
+      var response = await _client.PostAsJsonAsync($"/api/shipments/{shipment.Id}/start", new { });
+      
+      Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+
+      var ids = offers.Select(o => o.Id).ToList();
+      
+      using var verifyScope = factory.Services.CreateScope();
+      var verifyDb = verifyScope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+      var verifiedOffers = await verifyDb.Offers
+         .Where(o => ids.Contains(o.Id))
+         .ToListAsync();
+      
+      Assert.Equal(offers.Count, verifiedOffers.Count);
+      Assert.All(verifiedOffers, vo => Assert.Equal(vo.OfferStateId, offers
+         .First(o => o.Id == vo.Id).OfferStateId));
+   }
 }
