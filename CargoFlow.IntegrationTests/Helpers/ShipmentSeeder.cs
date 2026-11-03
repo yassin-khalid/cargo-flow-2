@@ -1,6 +1,7 @@
 using CargoFlow.Data;
 using CargoFlow.Domain;
 using CargoFlow.Domain.Enums;
+using CargoFlow.Dtos;
 using Microsoft.EntityFrameworkCore;
 
 namespace CargoFlow.IntegrationTests.Helpers;
@@ -35,8 +36,34 @@ public static class ShipmentSeeder
 
         return (pickup, destination);
     }
-    
-    
+
+    public static async Task<CreateShipmentRequestDto> GetValidCreateShipmentDtoAsync(CargoFlowDbContext db)
+    {
+           
+        var (pickup, destination) = GenerateUniqueAddresses();
+        
+        db.Addresses.AddRange(pickup, destination);
+
+        var uniqueSuffix = Guid.NewGuid().ToString()[..8];
+
+        var customer = new Customer()
+        {
+            Name = $"Cust-{uniqueSuffix}",
+            NationalId = $"Nat-{uniqueSuffix[..6]}"
+        };
+        db.Customers.Add(customer);
+        
+        var weightType = new WeightType()
+        {
+            Name = "Standard"
+        };
+
+        db.WeightTypes.Add(weightType);
+        
+        await db.SaveChangesAsync();
+
+        return new CreateShipmentRequestDto(customer.Id, pickup.Id, destination.Id, 20, weightType.Id);
+    }
     public static async Task<(Shipment, List<Offer>)> SeedShipmentWithOffersAsync(
         CargoFlowDbContext db, 
         ShipmentStatusName shipmentStatus, 
