@@ -32,9 +32,10 @@ public class ShipmentStatusHistoryIntegrationTest(LocalSqlWebApplicationFactory<
             PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
         });
 
+        Assert.Equal(HttpStatusCode.Created, result.StatusCode);
+        
         var responseDto = await result.Content.ReadFromJsonAsync<ShipmentDto>();
         Assert.NotNull(responseDto);
-        Assert.Equal(HttpStatusCode.Created, result.StatusCode);
 
         using var verifyScope = factory.Services.CreateScope();
         var verifyDb = verifyScope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
