@@ -1,4 +1,5 @@
-using System.Net; using System.Net.Http.Json;
+using System.Net; 
+using System.Net.Http.Json;
 using CargoFlow.Data;
 using CargoFlow.Domain;
 using CargoFlow.Domain.Enums;
@@ -58,7 +59,7 @@ public class ShipmentStatusHistoryIntegrationTest(LocalSqlWebApplicationFactory<
 
         using var verifyScope = factory.Services.CreateScope();
         var verifyDb = verifyScope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
-        var verifyData = scope.ServiceProvider.GetRequiredService<IReferenceData>();
+        var verifyData = verifyScope.ServiceProvider.GetRequiredService<IReferenceData>();
         
         var draftStatusId = verifyData.GetShipmentStatusId(ShipmentStatusName.Draft);
         var ssh = await verifyDb.ShipmentStatusHistories.FirstOrDefaultAsync(ssh => ssh.ShipmentId == createdResult.Value.Id);

@@ -71,21 +71,19 @@ public static class ShipmentEndpoints
             PickupId = dto.PickupId,
             WeightTypeId = dto.WeightTypeId,
             ShipmentStatusId = draftShipmentId,
-            Weight = dto.Weight
+            Weight = dto.Weight,
+            ShipmentStatusHistories = [
+                new ShipmentStatusHistory()
+                {
+                    ShipmentStatusId = draftShipmentId,
+                    DateTime = DateTime.UtcNow                   
+                }
+            ]
         };
 
         db.Shipments.Add(shipment);
         try
         {
-            await db.SaveChangesAsync();
-            var shipmentStatusHistory = new ShipmentStatusHistory()
-            {
-                ShipmentId = shipment.Id,
-                ShipmentStatusId = draftShipmentId,
-                DateTime = DateTime.UtcNow
-            };
-
-            db.ShipmentStatusHistories.Add(shipmentStatusHistory);
             await db.SaveChangesAsync();
         }
         catch (DbUpdateException ex) when (ExceptionsHelpers.IsForeignKeyViolation(ex, "FK_Shipments_Customers_CustomerId"))
