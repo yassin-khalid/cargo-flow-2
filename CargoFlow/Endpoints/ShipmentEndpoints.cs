@@ -74,7 +74,15 @@ public static class ShipmentEndpoints
             Weight = dto.Weight
         };
 
+        var shipmentStatusHistory = new ShipmentStatusHistory()
+        {
+            ShipmentId = shipment.Id,
+            ShipmentStatusId = draftShipmentId,
+            DateTime = DateTime.UtcNow
+        };
+
         db.Shipments.Add(shipment);
+        db.ShipmentStatusHistories.Add(shipmentStatusHistory);
         try
         {
             await db.SaveChangesAsync();
@@ -134,6 +142,15 @@ public static class ShipmentEndpoints
         
         shipment.ShipmentStatusId = openForOffersStatusId;
 
+        var shipmentStatusHistory = new ShipmentStatusHistory()
+        {
+            ShipmentId = shipment.Id,
+            ShipmentStatusId = openForOffersStatusId,
+            DateTime = DateTime.UtcNow
+        };
+        
+        db.ShipmentStatusHistories.Add(shipmentStatusHistory);
+
         try
         {
             await db.SaveChangesAsync();
@@ -184,6 +201,15 @@ public static class ShipmentEndpoints
         }
 
         shipment.ShipmentStatusId = cancelledStatusId;
+
+        var shipmentStatusHistory = new ShipmentStatusHistory()
+        {
+            ShipmentStatusId = cancelledStatusId,
+            ShipmentId = shipment.Id,
+            DateTime = DateTime.UtcNow
+        };
+
+        db.ShipmentStatusHistories.Add(shipmentStatusHistory);
         try
         {
             await db.SaveChangesAsync();
@@ -223,6 +249,14 @@ public static class ShipmentEndpoints
         var inTransitStatusId = referenceData.GetShipmentStatusId(ShipmentStatusName.InTransit);
 
         shipment.ShipmentStatusId = inTransitStatusId;
+        var shipmentStatusHistory = new ShipmentStatusHistory()
+        {
+            ShipmentId = shipment.Id,
+            ShipmentStatusId = inTransitStatusId,
+            DateTime = DateTime.UtcNow
+        };
+        db.ShipmentStatusHistories.Add(shipmentStatusHistory);
+        
         try
         {
             await db.SaveChangesAsync();
@@ -263,6 +297,16 @@ public static class ShipmentEndpoints
         var deliveredStatusId = referenceData.GetShipmentStatusId(ShipmentStatusName.Delivered);
 
         shipment.ShipmentStatusId = deliveredStatusId;
+
+        var shipmentStatusHistory = new ShipmentStatusHistory()
+        {
+            ShipmentId = shipment.Id,
+            ShipmentStatusId = deliveredStatusId,
+            DateTime = DateTime.UtcNow
+        };
+
+        db.ShipmentStatusHistories.Add(shipmentStatusHistory);
+        
         try
         {
             await db.SaveChangesAsync();

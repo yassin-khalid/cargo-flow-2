@@ -113,6 +113,13 @@ public static class OfferEndpoints
         if (shipment.ShipmentStatusId == openForOffersStatusId)
         {
             shipment.ShipmentStatusId = offerReceivedStatusId;
+            var shipmentStatusHistory = new ShipmentStatusHistory()
+            {
+                ShipmentStatusId = offerReceivedStatusId,
+                ShipmentId = shipmentId,
+                DateTime = DateTime.UtcNow
+            };
+            db.ShipmentStatusHistories.Add(shipmentStatusHistory);
         }
 
         try
@@ -240,6 +247,15 @@ public static class OfferEndpoints
         offer.OfferStateId = acceptedStateId;
         offer.HasWon = true;
         shipment.ShipmentStatusId = awardedStatusId;
+
+        var shipmentStatusHistory = new ShipmentStatusHistory()
+        {
+            ShipmentId = shipmentId,
+            ShipmentStatusId = awardedStatusId,
+            DateTime = DateTime.UtcNow
+        };
+
+        db.ShipmentStatusHistories.Add(shipmentStatusHistory);
 
         try
         {
