@@ -1,12 +1,11 @@
 using System.Net; using System.Net.Http.Json;
-using System.Text.Json;
 using CargoFlow.Data;
 using CargoFlow.Domain;
 using CargoFlow.Domain.Enums;
 using CargoFlow.Dtos;
+using CargoFlow.Endpoints;
 using CargoFlow.Helpers;
 using CargoFlow.IntegrationTests.Helpers;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -18,55 +17,54 @@ public class ShipmentStatusHistoryIntegrationTest(LocalSqlWebApplicationFactory<
 {
     private readonly HttpClient _client = factory.CreateClient();
 
-    // [Fact]
-    // public async Task CreateShipment_AddedDraftStatusHistory()
-    // {
-    //     using var scope = factory.Services.CreateScope();
-    //     var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
-    //     var referenceData = scope.ServiceProvider.GetRequiredService<IReferenceData>();
-    //
-    //     var pickupAddress = new Address()
-    //     {
-    //         Latitude = 21.532984M,
-    //         Longitude = 39.159653M
-    //     };
-    //
-    //     var destinationAddress = new Address()
-    //     {
-    //         Latitude = 24.4709M,
-    //         Longitude = 39.6122M
-    //     };
-    //     
-    //     var customer = new Customer()
-    //     {
-    //         Name = "Cust-test1234",
-    //         NationalId = "Nat-123456",
-    //     };
-    //
-    //     db.Addresses.AddRange(pickupAddress, destinationAddress);
-    //     db.Customers.Add(customer);
-    //
-    //     await db.SaveChangesAsync();
-    //
-    //     // var draftStatusId = referenceData.GetShipmentStatusId(ShipmentStatusName.Draft);
-    //
-    //     var response = await _client.PostAsJsonAsync("/api/shipments",
-    //         new CreateShipmentRequestDto(customer.Id, pickupAddress.Id, destinationAddress.Id, 200, 1));
-    //
-    //     var result = await response.Content.ReadFromJsonAsync<HttpValidationProblemDetails>();
-    //     Assert.NotNull(result);
-    //     Assert.Equal([], result.Errors["customer_id"]);
-    //     Assert.Equal([], result.Errors["pickup_id"]);
-    //     Assert.Equal([], result.Errors["destination_id"]);
-    //     Assert.Equal([], result.Errors["weight_type_id"]);
-    //
-    //     // using var verifyScope = factory.Services.CreateScope();
-    //     // var verifyDb = verifyScope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
-    //     //
-    //     // var ssh = await verifyDb.ShipmentStatusHistories.FirstOrDefaultAsync(ssh => ssh.ShipmentId == result.Value!.Id);
-    //     // Assert.NotNull(ssh);
-    //     // Assert.Equal(draftStatusId, ssh.ShipmentStatusId);
-    // }
+    [Fact]
+    public async Task CreateShipment_AddedDraftStatusHistory()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+        var referenceData = scope.ServiceProvider.GetRequiredService<IReferenceData>();
+    
+        var pickupAddress = new Address()
+        {
+            Latitude = 21.532984M,
+            Longitude = 39.159653M
+        };
+    
+        var destinationAddress = new Address()
+        {
+            Latitude = 24.4709M,
+            Longitude = 39.6122M
+        };
+        
+        var customer = new Customer()
+        {
+            Name = "Cust-test1234",
+            NationalId = "Nat-654780",
+        };
+    
+        db.Addresses.AddRange(pickupAddress, destinationAddress);
+        db.Customers.Add(customer);
+    
+        await db.SaveChangesAsync();
+    
+        var result = await ShipmentEndpoints.CreateShipment(db,
+            new CreateShipmentRequestDto(customer.Id, pickupAddress.Id, destinationAddress.Id, 200, 1), referenceData);
+
+
+        var typedResult = Assert.IsType<Results<CreatedAtRoute<ShipmentDto>, ValidationProblem, ProblemHttpResult>>(result);
+        var createdResult = Assert.IsType<CreatedAtRoute<ShipmentDto>>(typedResult.Result, exactMatch: false);
+
+        Assert.NotNull(createdResult.Value);
+
+        using var verifyScope = factory.Services.CreateScope();
+        var verifyDb = verifyScope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+        var verifyData = scope.ServiceProvider.GetRequiredService<IReferenceData>();
+        
+        var draftStatusId = verifyData.GetShipmentStatusId(ShipmentStatusName.Draft);
+        var ssh = await verifyDb.ShipmentStatusHistories.FirstOrDefaultAsync(ssh => ssh.ShipmentId == createdResult.Value.Id);
+        Assert.NotNull(ssh);
+        Assert.Equal(draftStatusId, ssh.ShipmentStatusId);
+    }
 
     [Fact]
     public async Task OpenShipment_ShouldAddOpenedStatusHistory()

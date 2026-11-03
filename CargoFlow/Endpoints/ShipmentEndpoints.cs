@@ -36,7 +36,7 @@ public static class ShipmentEndpoints
         };
     }
 
-    private static async Task<Results<CreatedAtRoute<ShipmentDto>, ValidationProblem, ProblemHttpResult>> CreateShipment(CargoFlowDbContext db, CreateShipmentRequestDto dto, IReferenceData referenceData)
+    public static async Task<Results<CreatedAtRoute<ShipmentDto>, ValidationProblem, ProblemHttpResult>> CreateShipment(CargoFlowDbContext db, CreateShipmentRequestDto dto, IReferenceData referenceData)
     {
         var isCustomerExists = await db.Customers.AnyAsync(c => c.Id == dto.CustomerId);
         if (!isCustomerExists)
@@ -74,17 +74,18 @@ public static class ShipmentEndpoints
             Weight = dto.Weight
         };
 
-        var shipmentStatusHistory = new ShipmentStatusHistory()
-        {
-            ShipmentId = shipment.Id,
-            ShipmentStatusId = draftShipmentId,
-            DateTime = DateTime.UtcNow
-        };
-
         db.Shipments.Add(shipment);
-        db.ShipmentStatusHistories.Add(shipmentStatusHistory);
         try
         {
+            await db.SaveChangesAsync();
+            var shipmentStatusHistory = new ShipmentStatusHistory()
+            {
+                ShipmentId = shipment.Id,
+                ShipmentStatusId = draftShipmentId,
+                DateTime = DateTime.UtcNow
+            };
+
+            db.ShipmentStatusHistories.Add(shipmentStatusHistory);
             await db.SaveChangesAsync();
         }
         catch (DbUpdateException ex) when (ExceptionsHelpers.IsForeignKeyViolation(ex, "FK_Shipments_Customers_CustomerId"))
