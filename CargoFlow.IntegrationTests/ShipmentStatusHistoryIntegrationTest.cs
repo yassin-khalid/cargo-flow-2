@@ -1,5 +1,6 @@
 using System.Net; 
 using System.Net.Http.Json;
+using System.Text.Json;
 using CargoFlow.Data;
 using CargoFlow.Domain;
 using CargoFlow.Domain.Enums;
@@ -24,63 +25,25 @@ public class ShipmentStatusHistoryIntegrationTest(LocalSqlWebApplicationFactory<
     {
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
-        // var referenceData = scope.ServiceProvider.GetRequiredService<IReferenceData>();
-        //
-        // var pickupAddress = new Address()
-        // {
-        //     Latitude = 21.532984M,
-        //     Longitude = 39.159653M
-        // };
-        //
-        // var destinationAddress = new Address()
-        // {
-        //     Latitude = 24.4709M,
-        //     Longitude = 39.6122M
-        // };
-        //
-        // var customer = new Customer()
-        // {
-        //     Name = "Cust-test1234",
-        //     NationalId = "Nat-654780",
-        // };
-        //
-        // var weightType = new WeightType()
-        // {
-        //     Name = "Standard"
-        // };
-        //
-        // db.Addresses.AddRange(pickupAddress, destinationAddress);
-        // db.Customers.Add(customer);
-        // db.WeightTypes.Add(weightType);
-        //
-        // await db.SaveChangesAsync();
-    
-        // var result = await ShipmentEndpoints.CreateShipment(db,
-        //     new CreateShipmentRequestDto(customer.Id, pickupAddress.Id, destinationAddress.Id, 200, 1), referenceData);
 
         var dto = await ShipmentSeeder.GetValidCreateShipmentDtoAsync(db);
-        testOutputHelper.WriteLine($"dto: {dto}");
-        var result = await _client.PostAsJsonAsync($"/api/shipments", dto);
-            // new CreateShipmentRequestDto(customer.Id, pickupAddress.Id, destinationAddress.Id, 200, weightType.Id));
+        var result = await _client.PostAsJsonAsync($"/api/shipments", dto, new JsonSerializerOptions()
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
+        });
 
+        var responseDto = await result.Content.ReadFromJsonAsync<ShipmentDto>();
+        Assert.NotNull(responseDto);
+        Assert.Equal(HttpStatusCode.Created, result.StatusCode);
 
-        // var typedResult = Assert.IsType<Results<CreatedAtRoute<ShipmentDto>, ValidationProblem, ProblemHttpResult>>(result);
-        // var createdResult = Assert.IsType<CreatedAtRoute<ShipmentDto>>(typedResult.Result, exactMatch: false);
-
-        var response = await result.Content.ReadAsStringAsync();
-        testOutputHelper.WriteLine($"response: {response}");
-        Assert.Equal("", response);
-
-        // Assert.NotNull(createdResult.Value);
-
-        // using var verifyScope = factory.Services.CreateScope();
-        // var verifyDb = verifyScope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
-        // var verifyData = verifyScope.ServiceProvider.GetRequiredService<IReferenceData>();
-        //
-        // var draftStatusId = verifyData.GetShipmentStatusId(ShipmentStatusName.Draft);
-        // var ssh = await verifyDb.ShipmentStatusHistories.FirstOrDefaultAsync(ssh => ssh.ShipmentId == createdResult.Value.Id);
-        // Assert.NotNull(ssh);
-        // Assert.Equal(draftStatusId, ssh.ShipmentStatusId);
+        using var verifyScope = factory.Services.CreateScope();
+        var verifyDb = verifyScope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+        var verifyData = verifyScope.ServiceProvider.GetRequiredService<IReferenceData>();
+        
+        var draftStatusId = verifyData.GetShipmentStatusId(ShipmentStatusName.Draft);
+        var ssh = await verifyDb.ShipmentStatusHistories.FirstOrDefaultAsync(ssh => ssh.ShipmentId == responseDto.Id);
+        Assert.NotNull(ssh);
+        Assert.Equal(draftStatusId, ssh.ShipmentStatusId);
     }
 
     [Fact]

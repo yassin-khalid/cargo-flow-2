@@ -1,4 +1,3 @@
-using System.Net;
 using CargoFlow.Data;
 using CargoFlow.Domain;
 using CargoFlow.Domain.Enums;
@@ -36,7 +35,7 @@ public static class ShipmentEndpoints
         };
     }
 
-    public static async Task<Results<CreatedAtRoute<ShipmentDto>, ValidationProblem, ProblemHttpResult>> CreateShipment(CargoFlowDbContext db, CreateShipmentRequestDto dto, IReferenceData referenceData)
+    private static async Task<Results<CreatedAtRoute<ShipmentDto>, ValidationProblem, ProblemHttpResult>> CreateShipment(CargoFlowDbContext db, CreateShipmentRequestDto dto, IReferenceData referenceData)
     {
         var isCustomerExists = await db.Customers.AnyAsync(c => c.Id == dto.CustomerId);
         if (!isCustomerExists)
