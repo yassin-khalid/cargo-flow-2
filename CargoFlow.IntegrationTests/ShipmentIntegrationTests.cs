@@ -436,5 +436,10 @@ public class ShipmentIntegrationTests(LocalSqlWebApplicationFactory<Program> fac
       Assert.True(dto.Items.Count <= pageSize);
       Assert.Equal(page, dto.Page);
       Assert.Equal(pageSize, dto.PageSize);
+      if (dto.Items is { Count: > 0 })
+      {
+         Assert.All(dto.Items, i => Assert.Equal(customerId, i.CustomerId));
+         Assert.All(dto.Items, i => Assert.Equal(shipmentStatusId, i.ShipmentStatusId));
+      }
    }
 }

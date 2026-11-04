@@ -2,6 +2,7 @@ using CargoFlow.Data;
 using CargoFlow.Domain;
 using CargoFlow.Domain.Enums;
 using CargoFlow.Dtos;
+using CargoFlow.Endpoints.Filters;
 using CargoFlow.Helpers;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -13,7 +14,8 @@ public static class ShipmentEndpoints
 {
     public static RouteGroupBuilder MapShipmentEndpoints(this RouteGroupBuilder group)
     {
-        group.MapGet("/", GetPaginatedShipments);
+        group.MapGet("/", GetPaginatedShipments)
+            .AddEndpointFilter<ShipmentValidationFilter>();
         group.MapGet("/{id:int}", GetShipment)
             .WithName(EndpointRouteNames.GetShipmentByIdRoute);
         group.MapPost("/", CreateShipment);
@@ -24,7 +26,7 @@ public static class ShipmentEndpoints
         return group;
     }
 
-    private static async Task<Ok<PaginatedShipmentsDto>> GetPaginatedShipments(CargoFlowDbContext db, GetPaginatedShipmentsRequestDto query)
+    private static async Task<Ok<PaginatedShipmentsDto>> GetPaginatedShipments(CargoFlowDbContext db, [AsParameters] GetPaginatedShipmentsRequestDto query)
     {
         var (customerId, 
             shipmentStatus, 
@@ -55,8 +57,9 @@ public static class ShipmentEndpoints
         }
 
         var totalCount = await shipments.CountAsync();
+        var skip = (long)(page - 1) * pageSize;
         shipments = shipments.OrderBy(s => s.Id);
-        shipments = shipments.Skip((page - 1) * pageSize).Take(pageSize);
+        shipments = shipments.Skip((int)skip).Take(pageSize);
 
         var items = await shipments
             .Select(s => new ShipmentDto(s.Id, 
