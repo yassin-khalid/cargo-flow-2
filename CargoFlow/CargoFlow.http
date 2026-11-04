@@ -60,3 +60,6 @@ POST {{CargoFlow_HostAddress}}/api/shipments/3/offers/6/withdraw
 
 POST {{CargoFlow_HostAddress}}/api/shipments/1/cancel
 ###
+
+GET {{CargoFlow_HostAddress}}/api/shipments?customer_id=1&shipment_status=2&page=2&page_size=5
+###

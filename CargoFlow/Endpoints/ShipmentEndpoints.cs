@@ -4,6 +4,7 @@ using CargoFlow.Domain.Enums;
 using CargoFlow.Dtos;
 using CargoFlow.Helpers;
 using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 namespace CargoFlow.Endpoints;
@@ -12,6 +13,7 @@ public static class ShipmentEndpoints
 {
     public static RouteGroupBuilder MapShipmentEndpoints(this RouteGroupBuilder group)
     {
+        group.MapGet("/", GetPaginatedShipments);
         group.MapGet("/{id:int}", GetShipment)
             .WithName(EndpointRouteNames.GetShipmentByIdRoute);
         group.MapPost("/", CreateShipment);
@@ -22,6 +24,53 @@ public static class ShipmentEndpoints
         return group;
     }
 
+    private static async Task<Ok<PaginatedShipmentsDto>> GetPaginatedShipments(CargoFlowDbContext db, GetPaginatedShipmentsRequestDto query)
+    {
+        var (customerId, 
+            shipmentStatus, 
+            pickupAddress, 
+            destinationAddress, 
+            page, 
+            pageSize) = query;
+
+        var shipments = db.Shipments.AsNoTracking();
+        if (customerId is not 0)
+        {
+            shipments = shipments.Where(s => s.CustomerId == customerId);
+        }
+
+        if (shipmentStatus is not 0)
+        {
+            shipments = shipments.Where(s => s.ShipmentStatusId == shipmentStatus);
+        }
+
+        if (pickupAddress is not 0)
+        {
+            shipments = shipments.Where(s => s.PickupId == pickupAddress);
+        }
+
+        if (destinationAddress is not 0)
+        {
+            shipments = shipments.Where(s => s.DestinationId == destinationAddress);
+        }
+
+        var totalCount = await shipments.CountAsync();
+        shipments = shipments.OrderBy(s => s.Id);
+        shipments = shipments.Skip((page - 1) * pageSize).Take(pageSize);
+
+        var items = await shipments
+            .Select(s => new ShipmentDto(s.Id, 
+                s.CustomerId, 
+                s.PickupId, 
+                s.DestinationId, 
+                s.Weight, 
+                s.WeightTypeId, 
+                s.ShipmentStatusId))
+            .ToListAsync();
+        
+        return TypedResults.Ok(new PaginatedShipmentsDto(items, page, pageSize, totalCount));
+
+    }
     private static async Task<Results<Ok<ShipmentDto>, NotFound>> GetShipment(int id, CargoFlowDbContext db)
     {
         return await db.Shipments

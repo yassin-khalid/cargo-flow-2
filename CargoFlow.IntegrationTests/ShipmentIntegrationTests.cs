@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using CargoFlow.Data;
 using CargoFlow.Domain.Enums;
+using CargoFlow.Dtos;
 using CargoFlow.Endpoints;
 using CargoFlow.Helpers;
 using CargoFlow.IntegrationTests.Helpers;
@@ -10,11 +11,12 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Xunit.Abstractions;
 
 namespace CargoFlow.IntegrationTests;
 
 [Collection("Database collection")]
-public class ShipmentIntegrationTests(LocalSqlWebApplicationFactory<Program> factory) 
+public class ShipmentIntegrationTests(LocalSqlWebApplicationFactory<Program> factory, ITestOutputHelper testOutputHelper) 
 {
    private readonly HttpClient _client = factory.CreateClient();
     
@@ -407,5 +409,32 @@ public class ShipmentIntegrationTests(LocalSqlWebApplicationFactory<Program> fac
       Assert.Equal(StatusCodes.Status409Conflict, problemHttpResult.StatusCode);
       Assert.Equal("Update Concurrency Conflict", problemHttpResult.ProblemDetails.Title);
       Assert.Equal($"Shipment {shipment.Id} was modified or delivered by another concurrent request", problemHttpResult.ProblemDetails.Detail);
+   }
+
+   [Fact]
+   public async Task GetPaginatedShipment_ShouldReturns200OkWithPageNumberAndSize()
+   {
+      using var scope = factory.Services.CreateScope();
+      var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+      var referenceData = scope.ServiceProvider.GetRequiredService<IReferenceData>();
+
+      var customerId = await db.Customers.Select(c => c.Id).FirstAsync();
+      var shipmentStatusId = referenceData.GetShipmentStatusId(ShipmentStatusName.Awarded);
+
+      const int pageSize = 5;
+      const int page = 1;
+      
+      var response =
+         await _client.GetAsync($"/api/shipments?customer_id={customerId}&shipment_status={shipmentStatusId}&page={page}&page_size={pageSize}");
+      
+      testOutputHelper.WriteLine(await response.Content.ReadAsStringAsync());
+
+      var dto = await response.Content.ReadFromJsonAsync<PaginatedShipmentsDto>();
+
+      Assert.NotNull(dto);
+      Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+      Assert.True(dto.Items.Count <= pageSize);
+      Assert.Equal(page, dto.Page);
+      Assert.Equal(pageSize, dto.PageSize);
    }
 }
