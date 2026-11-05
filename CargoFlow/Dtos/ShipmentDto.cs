@@ -7,7 +7,6 @@ namespace CargoFlow.Dtos;
 
 public enum ShipmentSortBy
 {
-    [JsonPropertyName("created_at")]
     CreatedAt,
     Weight,
     Id

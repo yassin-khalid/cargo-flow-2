@@ -38,9 +38,6 @@ public static class ShipmentEndpoints
             sortBy,
             sortOrder) = query;
 
-        Console.WriteLine($"sortBy: {sortBy}");
-        Console.WriteLine($"sortOrder: {sortOrder}");
-        
         var shipments = db.Shipments.AsNoTracking();
         if (customerId is not null)
         {
@@ -84,7 +81,6 @@ public static class ShipmentEndpoints
         
         var totalCount = await shipments.CountAsync();
         var skip = (long)(page - 1) * pageSize;
-        shipments = shipments.OrderBy(s => s.Id);
         shipments = shipments.Skip((int)skip).Take(pageSize);
 
         var items = await shipments
