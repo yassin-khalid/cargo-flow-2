@@ -501,16 +501,21 @@ public class ShipmentIntegrationTests(LocalSqlWebApplicationFactory<Program> fac
       var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
 
       
-      List<string> sortKeys = ["weight", "id"];
-      foreach (var key in sortKeys)
+      string[] sortKeys = ["weight", "id"];
+      string[] sortDirection = ["asc", "desc"];
+      for (var i = 0; i < 2; i++)
       {
          var shipments = db.Shipments.AsNoTracking();
-         var response = await _client.GetAsync($"/api/shipments?sort_by={key}");
+         var response = await _client.GetAsync($"/api/shipments?sort_by={sortKeys[i]}&sort_order={sortDirection[i]}");
 
-         shipments = key switch
+         shipments = sortKeys[i] switch
          {
-            "weight" => shipments.OrderByDescending(s => s.Weight),
-            _ => shipments.OrderByDescending(s => s.Id)
+            "weight" => sortDirection[i] == "desc"
+               ? shipments
+                  .OrderByDescending(s => s.Weight).ThenBy(s => s.Id)
+               : shipments.OrderBy(s => s.Weight).ThenBy(s => s.Id),
+            _ => sortDirection[i] == "desc" ? shipments.OrderByDescending(s => s.Id) 
+               : shipments.OrderBy(s => s.Id)
          };
             
          Assert.Equal(HttpStatusCode.OK, response.StatusCode);
