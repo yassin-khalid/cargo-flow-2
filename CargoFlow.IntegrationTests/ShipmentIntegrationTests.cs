@@ -525,7 +525,10 @@ public class ShipmentIntegrationTests(LocalSqlWebApplicationFactory<Program> fac
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var dto = await response.Content.ReadFromJsonAsync<PaginatedShipmentsDto>();
             Assert.NotNull(dto);
-            Assert.All(dto.Items, item => Assert.Equal(item.Id, shipments.ToList()[dto.Items.IndexOf(item)].Id));
+
+            var expectedIds = await shipments.Select(s => s.Id).ToListAsync();
+            var actualIds = dto.Items.Select(i => i.Id).ToList();
+            Assert.Equal(expectedIds.Take(actualIds.Count), actualIds);
          }
       }
    }
