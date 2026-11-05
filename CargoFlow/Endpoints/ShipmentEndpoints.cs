@@ -67,7 +67,7 @@ public static class ShipmentEndpoints
             shipments = sortBy switch
             {
                 ShipmentSortBy.Id => shipments.OrderByDescending(s => s.Id),
-                _ => shipments.OrderByDescending(s => s.Weight).ThenBy(s => s.Weight)
+                _ => shipments.OrderByDescending(s => s.Weight).ThenBy(s => s.Id)
             };
         }
         else
