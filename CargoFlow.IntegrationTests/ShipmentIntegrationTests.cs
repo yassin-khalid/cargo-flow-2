@@ -417,10 +417,10 @@ public class ShipmentIntegrationTests(LocalSqlWebApplicationFactory<Program> fac
       using var scope = factory.Services.CreateScope();
       var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
       var referenceData = scope.ServiceProvider.GetRequiredService<IReferenceData>();
-
+   
       var customerId = await db.Customers.Select(c => c.Id).FirstAsync();
       var shipmentStatusId = referenceData.GetShipmentStatusId(ShipmentStatusName.Awarded);
-
+   
       const int pageSize = 5;
       const int page = 1;
       
@@ -428,9 +428,9 @@ public class ShipmentIntegrationTests(LocalSqlWebApplicationFactory<Program> fac
          await _client.GetAsync($"/api/shipments?customer_id={customerId}&shipment_status={shipmentStatusId}&page={page}&page_size={pageSize}");
       
       testOutputHelper.WriteLine(await response.Content.ReadAsStringAsync());
-
+   
       var dto = await response.Content.ReadFromJsonAsync<PaginatedShipmentsDto>();
-
+   
       Assert.NotNull(dto);
       Assert.Equal(HttpStatusCode.OK, response.StatusCode);
       Assert.True(dto.Items.Count <= pageSize);
@@ -442,4 +442,30 @@ public class ShipmentIntegrationTests(LocalSqlWebApplicationFactory<Program> fac
          Assert.All(dto.Items, i => Assert.Equal(shipmentStatusId, i.ShipmentStatusId));
       }
    }
+
+   [Fact]
+   public async Task GetPaginatedShipment_NoFilter_ShouldReturnsAllShipments()
+   {
+      using var scope = factory.Services.CreateScope();
+      var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+
+      var shipments = await db.Shipments.ToListAsync();
+      var noFilterPaginatesShipments = await _client.GetAsync("/api/shipments");
+
+      var dto = await noFilterPaginatesShipments.Content.ReadFromJsonAsync<PaginatedShipmentsDto>();
+
+      Assert.NotNull(dto);
+      Assert.Equal(shipments.Count, dto.TotalCount);
+   }
+
+   [Fact]
+   public async Task GetPaginatedShipment_InvalidQueryParameters_ShouldReturns400BadRequest()
+   {
+      var badPageSizeResponse = await _client.GetAsync($"/api/shipments?page_size=3");
+      Assert.Equal(HttpStatusCode.BadRequest, badPageSizeResponse.StatusCode);
+
+      var badCustomerIdResponse = await _client.GetAsync($"/api/shipments?customer_id=ttt");
+      Assert.Equal(HttpStatusCode.BadRequest, badCustomerIdResponse.StatusCode);
+   }
+   
 }

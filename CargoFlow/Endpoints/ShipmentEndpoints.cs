@@ -1,3 +1,4 @@
+using System.Text.Json;
 using CargoFlow.Data;
 using CargoFlow.Domain;
 using CargoFlow.Domain.Enums;
@@ -35,23 +36,24 @@ public static class ShipmentEndpoints
             page, 
             pageSize) = query;
 
+        Console.WriteLine(JsonSerializer.Serialize(query));
         var shipments = db.Shipments.AsNoTracking();
-        if (customerId is not 0)
+        if (customerId is not null)
         {
             shipments = shipments.Where(s => s.CustomerId == customerId);
         }
 
-        if (shipmentStatus is not 0)
+        if (shipmentStatus is not null)
         {
             shipments = shipments.Where(s => s.ShipmentStatusId == shipmentStatus);
         }
 
-        if (pickupAddress is not 0)
+        if (pickupAddress is not null)
         {
             shipments = shipments.Where(s => s.PickupId == pickupAddress);
         }
 
-        if (destinationAddress is not 0)
+        if (destinationAddress is not null)
         {
             shipments = shipments.Where(s => s.DestinationId == destinationAddress);
         }

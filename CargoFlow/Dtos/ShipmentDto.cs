@@ -1,17 +1,24 @@
 
 using System.ComponentModel.DataAnnotations;
-using System.Reflection;
 using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.Mvc;
 
 namespace CargoFlow.Dtos;
 
 public record ShipmentDto(
+    [property: JsonPropertyName("id")]
     int Id,
+    [property: JsonPropertyName("customer_id")]
     int CustomerId,
+    [property: JsonPropertyName("pickup_id")]
     int PickupId,
+    [property: JsonPropertyName("destination_id")]
     int DestinationId,
+    [property: JsonPropertyName("weight")]
     decimal Weight,
+    [property: JsonPropertyName("weight_type_id")]
     int WeightTypeId,
+    [property: JsonPropertyName("shipment_status_id")]
     int ShipmentStatusId
 );
 
@@ -27,11 +34,17 @@ public record PaginatedShipmentsDto(
 
 public class GetPaginatedShipmentsRequestDto 
 {
+    [FromQuery(Name = "customer_id")]
     public int? CustomerId { get; set; }
+    [FromQuery(Name = "shipment_status")]
     public int? ShipmentStatus { get; set; }
+    [FromQuery(Name = "pickup_address")]
     public int? PickupAddress { get; set; }
+    [FromQuery(Name = "destination_address")]
     public int? DestinationAddress { get; set; }
+    [FromQuery(Name = "page")]
     public int? Page { get; set; }
+    [FromQuery(Name = "page_size")]
     public int? PageSize { get; set; } = 5;
 
     public void Deconstruct(out int? customerId, out int? shipmentStatus, out int? pickupAddress,
