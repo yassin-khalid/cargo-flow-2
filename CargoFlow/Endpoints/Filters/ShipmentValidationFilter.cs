@@ -55,9 +55,9 @@ public class ShipmentValidationFilter : IEndpointFilter
     private static void ValidateOptionalIntFilter(IQueryCollection query, string key, Dictionary<string, string[]> errors)
     {
         if (!query.TryGetValue(key, out var keyStr)) return;
-        if (!int.TryParse(keyStr, out _))
+        if (!int.TryParse(keyStr, out var keyInt) || keyInt < 1)
         {
-            errors[key] = [$"{key} must be a valid integer"];
+            errors[key] = [$"{key} must be a valid positive integer"];
         }
     }
 }

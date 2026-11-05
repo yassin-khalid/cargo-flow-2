@@ -422,25 +422,43 @@ public class ShipmentIntegrationTests(LocalSqlWebApplicationFactory<Program> fac
       var shipmentStatusId = referenceData.GetShipmentStatusId(ShipmentStatusName.Awarded);
    
       const int pageSize = 5;
-      const int page = 1;
-      
-      var response =
-         await _client.GetAsync($"/api/shipments?customer_id={customerId}&shipment_status={shipmentStatusId}&page={page}&page_size={pageSize}");
-      
-      testOutputHelper.WriteLine(await response.Content.ReadAsStringAsync());
-   
-      var dto = await response.Content.ReadFromJsonAsync<PaginatedShipmentsDto>();
-   
-      Assert.NotNull(dto);
-      Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-      Assert.True(dto.Items.Count <= pageSize);
-      Assert.Equal(page, dto.Page);
-      Assert.Equal(pageSize, dto.PageSize);
-      if (dto.Items is { Count: > 0 })
+
+      var page = 1;
+
+
+      List<PaginatedShipmentsDto> dtos = [];
+      PaginatedShipmentsDto? dto;
+      // Examine the test for five different pages
+      do
       {
-         Assert.All(dto.Items, i => Assert.Equal(customerId, i.CustomerId));
-         Assert.All(dto.Items, i => Assert.Equal(shipmentStatusId, i.ShipmentStatusId));
-      }
+         var response =
+            await _client.GetAsync(
+               $"/api/shipments?customer_id={customerId}&shipment_status={shipmentStatusId}&page={page}&page_size={pageSize}");
+
+         testOutputHelper.WriteLine(await response.Content.ReadAsStringAsync());
+
+         dto = await response.Content.ReadFromJsonAsync<PaginatedShipmentsDto>();
+         Assert.NotNull(dto);
+         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+         Assert.True(dto.Items.Count <= pageSize);
+         Assert.Equal(page, dto.Page);
+         Assert.Equal(pageSize, dto.PageSize);
+         if (dto.Items is { Count: > 0 })
+         {
+            Assert.All(dto.Items, item => Assert.Equal(customerId, item.CustomerId));
+            Assert.All(dto.Items, item => Assert.Equal(shipmentStatusId, item.ShipmentStatusId));
+         }
+
+         if (dto.Items.Count > 0 || dtos.Count is 0)
+         {
+            dtos.Add(dto);
+         }
+
+         page++;
+      } while (dto.Items is { Count: > 0 });
+      
+      Assert.All(dtos, item => Assert.Equal(dtos[0].TotalCount, item.TotalCount));
+   
    }
 
    [Fact]
@@ -452,10 +470,15 @@ public class ShipmentIntegrationTests(LocalSqlWebApplicationFactory<Program> fac
       var shipments = await db.Shipments.ToListAsync();
       var noFilterPaginatesShipments = await _client.GetAsync("/api/shipments");
 
+      const int defaultPageSize = 5;
+      const int defaultPage = 1;
       var dto = await noFilterPaginatesShipments.Content.ReadFromJsonAsync<PaginatedShipmentsDto>();
 
       Assert.NotNull(dto);
+      Assert.Equal(defaultPageSize, dto.PageSize);
+      Assert.Equal(defaultPage, dto.Page);
       Assert.Equal(shipments.Count, dto.TotalCount);
+      Assert.True(dto.Items.Count <= defaultPageSize);
    }
 
    [Fact]
@@ -464,8 +487,11 @@ public class ShipmentIntegrationTests(LocalSqlWebApplicationFactory<Program> fac
       var badPageSizeResponse = await _client.GetAsync($"/api/shipments?page_size=3");
       Assert.Equal(HttpStatusCode.BadRequest, badPageSizeResponse.StatusCode);
 
-      var badCustomerIdResponse = await _client.GetAsync($"/api/shipments?customer_id=ttt");
-      Assert.Equal(HttpStatusCode.BadRequest, badCustomerIdResponse.StatusCode);
+      var nonIntegerCustomerIdResponse = await _client.GetAsync($"/api/shipments?customer_id=ttt");
+      Assert.Equal(HttpStatusCode.BadRequest, nonIntegerCustomerIdResponse.StatusCode);
+
+      var negativeCustomerIdResponse = await _client.GetAsync($"/api/shipments?customer_id=-11");
+      Assert.Equal(HttpStatusCode.BadRequest, negativeCustomerIdResponse.StatusCode);
    }
    
 }

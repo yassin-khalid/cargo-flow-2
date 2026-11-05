@@ -36,7 +36,6 @@ public static class ShipmentEndpoints
             page, 
             pageSize) = query;
 
-        Console.WriteLine(JsonSerializer.Serialize(query));
         var shipments = db.Shipments.AsNoTracking();
         if (customerId is not null)
         {
