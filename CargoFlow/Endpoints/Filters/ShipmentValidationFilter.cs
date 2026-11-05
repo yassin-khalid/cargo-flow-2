@@ -1,3 +1,6 @@
+using System.Text.Json;
+using CargoFlow.Dtos;
+
 namespace CargoFlow.Endpoints.Filters;
 
 public class ShipmentValidationFilter : IEndpointFilter
@@ -8,6 +11,8 @@ public class ShipmentValidationFilter : IEndpointFilter
     private const string DestinationAddressKey = "destination_address";
     private const string PageKey = "page";
     private const string PageSizeKey = "page_size";
+    private const string SortOrderKey = "sort_order";
+    private const string SortByKey = "sort_by";
 
     private static readonly int[] AllowedPageSizes = [5, 10, 15, 25, 50, 100];
     
@@ -32,6 +37,10 @@ public class ShipmentValidationFilter : IEndpointFilter
                 errors[PageSizeKey] = [$"{PageSizeKey} must be one of: {string.Join(", ", AllowedPageSizes)}"];
             }
         }
+
+        ValidateOptionalEnumFilter<ShipmentSortBy>(query, SortByKey, errors);
+        ValidateOptionalEnumFilter<ShipmentSortDirection>(query, SortOrderKey, errors);
+        
         ValidateOptionalIntFilter(query, CustomerIdKey, errors);
         ValidateOptionalIntFilter(query, ShipmentStatusKey, errors);
         ValidateOptionalIntFilter(query, PickupAddressKey, errors);
@@ -58,6 +67,18 @@ public class ShipmentValidationFilter : IEndpointFilter
         if (!int.TryParse(keyStr, out var keyInt) || keyInt < 1)
         {
             errors[key] = [$"{key} must be a valid positive integer"];
+        }
+    }
+
+    private static void ValidateOptionalEnumFilter<T>(IQueryCollection query, string key,
+        Dictionary<string, string[]> errors) where T : struct, Enum
+    {
+        if (!query.TryGetValue(key, out var keyStr) || string.IsNullOrWhiteSpace(keyStr)) return;
+        var values = Enum.GetNames<T>().Select(JsonNamingPolicy.SnakeCaseLower.ConvertName).ToList();
+        if (!values.Contains(keyStr!))
+        {
+            errors[key] =
+                [$"{key} must be one of: [{string.Join(", ", values)}]"];
         }
     }
 }

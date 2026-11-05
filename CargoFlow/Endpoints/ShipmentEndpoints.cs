@@ -34,8 +34,13 @@ public static class ShipmentEndpoints
             pickupAddress, 
             destinationAddress, 
             page, 
-            pageSize) = query;
+            pageSize,
+            sortBy,
+            sortOrder) = query;
 
+        Console.WriteLine($"sortBy: {sortBy}");
+        Console.WriteLine($"sortOrder: {sortOrder}");
+        
         var shipments = db.Shipments.AsNoTracking();
         if (customerId is not null)
         {
@@ -56,7 +61,27 @@ public static class ShipmentEndpoints
         {
             shipments = shipments.Where(s => s.DestinationId == destinationAddress);
         }
-
+        
+        // I have no 'CreatedAt' in my entity, I'll use 'Id' instead
+        if (sortOrder == ShipmentSortDirection.Desc)
+        {
+            shipments = sortBy switch
+            {
+                ShipmentSortBy.CreatedAt or ShipmentSortBy.Id => shipments.OrderByDescending(s => s.Id),
+                _ => shipments.OrderByDescending(s => s.Weight)
+            };
+        }
+        else
+        {
+            
+            shipments = sortBy switch
+            {
+                ShipmentSortBy.CreatedAt or ShipmentSortBy.Id => shipments.OrderBy(s => s.Id),
+                _ => shipments.OrderBy(s => s.Weight)
+            };
+        }
+        
+        
         var totalCount = await shipments.CountAsync();
         var skip = (long)(page - 1) * pageSize;
         shipments = shipments.OrderBy(s => s.Id);

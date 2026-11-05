@@ -5,6 +5,19 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace CargoFlow.Dtos;
 
+public enum ShipmentSortBy
+{
+    [JsonPropertyName("created_at")]
+    CreatedAt,
+    Weight,
+    Id
+}
+
+public enum ShipmentSortDirection
+{
+    Asc,
+    Desc,
+}
 public record ShipmentDto(
     [property: JsonPropertyName("id")]
     int Id,
@@ -45,13 +58,38 @@ public class GetPaginatedShipmentsRequestDto
     [FromQuery(Name = "page")]
     public int? Page { get; set; }
     [FromQuery(Name = "page_size")]
-    public int? PageSize { get; set; } = 5;
+    public int? PageSize { get; set; }
+    [FromQuery(Name = "sort_by")]
+    public string? SortBy { get; set; }
+    [FromQuery(Name = "sort_order")]
+    public string? SortOrder { get; set; }
 
     public void Deconstruct(out int? customerId, out int? shipmentStatus, out int? pickupAddress,
-        out int? destinationAddress, out int page, out int pageSize)
+        out int? destinationAddress, 
+        out int page, 
+        out int pageSize, 
+        out ShipmentSortBy sortBy, 
+        out ShipmentSortDirection sortDirection)
     {
-        (customerId, shipmentStatus, pickupAddress, destinationAddress, page, pageSize) = (CustomerId, ShipmentStatus,
-            PickupAddress, DestinationAddress, Page ?? 1, PageSize ?? 5);
+        sortBy = SortBy switch
+        {
+            "weight" => ShipmentSortBy.Weight,
+            "id" => ShipmentSortBy.Id,
+            _ => ShipmentSortBy.CreatedAt
+        };
+
+        sortDirection = SortOrder switch
+        {
+            "asc" => ShipmentSortDirection.Asc,
+            _ => ShipmentSortDirection.Desc
+        };
+
+        (customerId, shipmentStatus, pickupAddress, destinationAddress, page, pageSize) = (
+            CustomerId,
+            ShipmentStatus,
+            PickupAddress,
+            DestinationAddress, Page ?? 1,
+            PageSize ?? 5);
     }
 }
 
