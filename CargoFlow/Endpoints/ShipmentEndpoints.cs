@@ -4,6 +4,7 @@ using CargoFlow.Domain;
 using CargoFlow.Domain.Enums;
 using CargoFlow.Dtos;
 using CargoFlow.Endpoints.Filters;
+using CargoFlow.Extensions;
 using CargoFlow.Helpers;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -27,8 +28,9 @@ public static class ShipmentEndpoints
         return group;
     }
 
-    private static async Task<Ok<PaginatedShipmentsDto>> GetPaginatedShipments(CargoFlowDbContext db, [AsParameters] GetPaginatedShipmentsRequestDto query)
+    private static async Task<Ok<PaginatedShipmentsDto>> GetPaginatedShipments(CargoFlowDbContext db, [AsParameters] GetPaginatedShipmentsRequestDto dto)
     {
+        var query = dto.ToQuery();
         var (customerId, 
             shipmentStatus, 
             pickupAddress, 
@@ -64,7 +66,7 @@ public static class ShipmentEndpoints
         {
             shipments = sortBy switch
             {
-                ShipmentSortBy.CreatedAt or ShipmentSortBy.Id => shipments.OrderByDescending(s => s.Id),
+                ShipmentSortBy.Id => shipments.OrderByDescending(s => s.Id),
                 _ => shipments.OrderByDescending(s => s.Weight)
             };
         }
@@ -73,8 +75,8 @@ public static class ShipmentEndpoints
             
             shipments = sortBy switch
             {
-                ShipmentSortBy.CreatedAt or ShipmentSortBy.Id => shipments.OrderBy(s => s.Id),
-                _ => shipments.OrderBy(s => s.Weight)
+                ShipmentSortBy.Id => shipments.OrderBy(s => s.Id),
+                _ => shipments.OrderBy(s => s.Weight).ThenBy(s => s.Id)
             };
         }
         

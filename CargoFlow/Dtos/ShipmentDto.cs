@@ -7,7 +7,6 @@ namespace CargoFlow.Dtos;
 
 public enum ShipmentSortBy
 {
-    CreatedAt,
     Weight,
     Id
 }
@@ -44,6 +43,16 @@ public record PaginatedShipmentsDto(
     [property: JsonPropertyName("total_count")]
     int TotalCount);
 
+public record GetShipmentQuery(
+    int? CustomerId,
+    int? ShipmentStatus,
+    int? PickupAddress,
+    int? DestinationAddress,
+    int Page,
+    int PageSize,
+    ShipmentSortBy SortBy,
+    ShipmentSortDirection SortOrder);
+
 public class GetPaginatedShipmentsRequestDto 
 {
     [FromQuery(Name = "customer_id")]
@@ -62,34 +71,6 @@ public class GetPaginatedShipmentsRequestDto
     public string? SortBy { get; set; }
     [FromQuery(Name = "sort_order")]
     public string? SortOrder { get; set; }
-
-    public void Deconstruct(out int? customerId, out int? shipmentStatus, out int? pickupAddress,
-        out int? destinationAddress, 
-        out int page, 
-        out int pageSize, 
-        out ShipmentSortBy sortBy, 
-        out ShipmentSortDirection sortDirection)
-    {
-        sortBy = SortBy switch
-        {
-            "weight" => ShipmentSortBy.Weight,
-            "id" => ShipmentSortBy.Id,
-            _ => ShipmentSortBy.CreatedAt
-        };
-
-        sortDirection = SortOrder switch
-        {
-            "asc" => ShipmentSortDirection.Asc,
-            _ => ShipmentSortDirection.Desc
-        };
-
-        (customerId, shipmentStatus, pickupAddress, destinationAddress, page, pageSize) = (
-            CustomerId,
-            ShipmentStatus,
-            PickupAddress,
-            DestinationAddress, Page ?? 1,
-            PageSize ?? 5);
-    }
 }
 
 

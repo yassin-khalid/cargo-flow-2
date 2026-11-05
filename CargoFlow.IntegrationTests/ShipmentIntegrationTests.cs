@@ -493,5 +493,30 @@ public class ShipmentIntegrationTests(LocalSqlWebApplicationFactory<Program> fac
       var negativeCustomerIdResponse = await _client.GetAsync($"/api/shipments?customer_id=-11");
       Assert.Equal(HttpStatusCode.BadRequest, negativeCustomerIdResponse.StatusCode);
    }
-   
+
+   [Fact]
+   public async Task GetPaginatedShipment_ShouldReturns200OkSortedItems()
+   {
+      using var scope = factory.Services.CreateScope();
+      var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+
+      
+      List<string> sortKeys = ["weight", "id"];
+      foreach (var key in sortKeys)
+      {
+         var shipments = db.Shipments.AsNoTracking();
+         var response = await _client.GetAsync($"/api/shipments?sort_by={key}");
+
+         shipments = key switch
+         {
+            "weight" => shipments.OrderByDescending(s => s.Weight),
+            _ => shipments.OrderByDescending(s => s.Id)
+         };
+            
+         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+         var dto = await response.Content.ReadFromJsonAsync<PaginatedShipmentsDto>();
+         Assert.NotNull(dto);
+         Assert.All(dto.Items, item => Assert.Equal(item.Id, shipments.ToList()[dto.Items.IndexOf(item)].Id));
+      }
+   }
 }
