@@ -537,54 +537,6 @@ public class ShipmentIntegrationTests(LocalSqlWebApplicationFactory<Program> fac
    }
 
    [Fact]
-   public async Task TransitionShipmentStatus_ShouldReturns201WhenAllowed400WhenNotAllowed()
-   {
-      using var scope = factory.Services.CreateScope();
-      var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
-
-      var shipmentId = await db.Shipments
-         .Select(s => s.Id)
-         .FirstAsync();
-
-      var shipmentStatuses = await db.ShipmentStatuses.ToListAsync();
-
-      foreach (var targetStatus in shipmentStatuses)
-      {
-         var currentStatus = await db.Shipments
-            .Where(s => s.Id == shipmentId)
-            .Select(s => s.ShipmentStatus.Name)
-            .FirstAsync();
-         
-         var allowedStatusNames = ShipmentStatusTransitions.GetAllowedTransitions(currentStatus);
-         
-         var response = await _client.PatchAsync($"/api/shipments/{shipmentId}/status",
-            new StringContent(
-               JsonSerializer.Serialize(new ShipmentStatusTransitionRequest(targetStatus.Id)),
-               Encoding.UTF8,
-               "application/json"
-            ));
-         
-         testOutputHelper.WriteLine(await response.Content.ReadAsStringAsync());
-         testOutputHelper.WriteLine($"transition from: '{currentStatus}' to '{targetStatus.Name}'");
-         testOutputHelper.WriteLine(
-            $"Allowed transitions for '{currentStatus}' is '{(allowedStatusNames is null ? "null" : string.Join(", ", allowedStatusNames))}'");
-         
-         if (allowedStatusNames is null)
-         {
-            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-         }
-         else if (allowedStatusNames.Contains(targetStatus.Name))
-         {
-            Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
-         }
-         else
-         {
-            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-         }
-      }
-   }
-
-   [Fact]
    public async Task TransitionShipmentStatus_ShouldReturns404WhenNoShipmentFound()
    {
       using var scope = factory.Services.CreateScope();
@@ -622,5 +574,72 @@ public class ShipmentIntegrationTests(LocalSqlWebApplicationFactory<Program> fac
       testOutputHelper.WriteLine(await response.Content.ReadAsStringAsync());
       
       Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+   }
+
+   [Theory]
+   [InlineData(ShipmentStatusName.Draft, ShipmentStatusName.OpenForOffers, 204)]
+   [InlineData(ShipmentStatusName.OpenForOffers, ShipmentStatusName.OffersReceived, 204)]
+   [InlineData(ShipmentStatusName.OpenForOffers, ShipmentStatusName.Awarded, 204)]
+   [InlineData(ShipmentStatusName.OpenForOffers, ShipmentStatusName.Cancelled, 204)]
+   [InlineData(ShipmentStatusName.OffersReceived, ShipmentStatusName.Awarded, 204)]
+   [InlineData(ShipmentStatusName.OffersReceived, ShipmentStatusName.Cancelled, 204)]
+   [InlineData(ShipmentStatusName.Awarded, ShipmentStatusName.InTransit, 204)]
+   [InlineData(ShipmentStatusName.InTransit, ShipmentStatusName.Delivered, 204)]
+   [InlineData(ShipmentStatusName.Delivered, ShipmentStatusName.Completed, 204)]
+   [InlineData(ShipmentStatusName.Completed, ShipmentStatusName.Cancelled, 400)]
+   [InlineData(ShipmentStatusName.Cancelled, ShipmentStatusName.Draft, 400)]
+   [InlineData(ShipmentStatusName.OpenForOffers, ShipmentStatusName.InTransit, 400)]
+   [InlineData(ShipmentStatusName.InTransit, ShipmentStatusName.Completed, 400)]
+   [InlineData(ShipmentStatusName.Awarded, ShipmentStatusName.Delivered, 400)]
+   
+   public async Task TransitionShipmentStatus_ShouldReturnsExpectedStatusCode(
+      ShipmentStatusName currentStatusName,
+      ShipmentStatusName targetStatusName, 
+      int expectedStatusCode)
+   {
+      using var scope = factory.Services.CreateScope();
+      var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+
+      var shipmentStatuses = await db.ShipmentStatuses.ToListAsync();
+   
+      // Make sure there is at lease one shipment for every shipment status
+      await ShipmentSeeder.SeedShipmentListWithUniqueStatusAsync(
+         db,
+         [.. shipmentStatuses.Select(ss => new ShipmentSpec(ss.Name, "Ton (t)", 200))]
+      );
+
+      var shipment = await db.Shipments.FirstAsync(s => s.ShipmentStatus.Name == currentStatusName);
+      var targetStatus = await db.ShipmentStatuses.FirstAsync(ss => ss.Name == targetStatusName);
+
+      var response = await _client.PatchAsync($"/api/shipments/{shipment.Id}/status", new StringContent(
+         JsonSerializer.Serialize(new ShipmentStatusTransitionRequest(targetStatus.Id)),
+         Encoding.UTF8,
+         "application/json"));
+      
+      Assert.Equal(expectedStatusCode, (int) response.StatusCode);
+
+      using var verifyScope = factory.Services.CreateScope();
+      var verifyDb = verifyScope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+
+      var verifyShipment = await verifyDb.Shipments
+         .Include(s => s.ShipmentStatus)
+         .Include(s => s.ShipmentStatusHistories)
+         .ThenInclude(ssh => ssh.ShipmentStatus)
+         .FirstAsync(s => s.Id == shipment.Id);
+
+      var lastRecordedShipmentHistory = verifyShipment.ShipmentStatusHistories
+         .OrderByDescending(ssh => ssh.DateTime)
+         .Select(ssh => ssh.ShipmentStatus.Name)
+         .FirstOrDefault();
+      
+      if (expectedStatusCode == 204)
+      {
+         Assert.Equal(targetStatusName, verifyShipment.ShipmentStatus.Name);
+         Assert.Equal(targetStatusName, lastRecordedShipmentHistory);   
+      }
+      else
+      {
+         Assert.Equal(currentStatusName, verifyShipment.ShipmentStatus.Name);
+      }
    }
 }

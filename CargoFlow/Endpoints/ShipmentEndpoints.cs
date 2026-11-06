@@ -420,7 +420,7 @@ public static class ShipmentEndpoints
         }
 
         var allowedTransitions = ShipmentStatusTransitions.GetAllowedTransitions(shipment.ShipmentStatus.Name);
-        if (allowedTransitions is null)
+        if (allowedTransitions is {Count: 0})
         {
             return TypedResults.Problem(
                 statusCode: StatusCodes.Status400BadRequest,
@@ -441,8 +441,27 @@ public static class ShipmentEndpoints
 
         shipment.ShipmentStatusId = targetStatus.Id;
 
-        await db.SaveChangesAsync();
-        return TypedResults.NoContent();
+        var shipmentStatusHistory = new ShipmentStatusHistory()
+        {
+            ShipmentStatusId = targetStatus.Id,
+            DateTime = DateTime.UtcNow,
+            ShipmentId = shipment.Id
+        };
+
+        db.ShipmentStatusHistories.Add(shipmentStatusHistory);
+
+        try
+        {
+            await db.SaveChangesAsync();
+            return TypedResults.NoContent();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return TypedResults.Problem(
+                statusCode: StatusCodes.Status409Conflict,
+                title: "Database Update Concurrency Conflict",
+                detail: $"Shipment #{shipment.Id} status has been modified by another concurrent request");
+        }
 
     }
 }
