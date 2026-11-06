@@ -395,7 +395,7 @@ public static class ShipmentEndpoints
         }
     }
 
-    private static async Task<Results<NoContent, ProblemHttpResult>> TransitionShipmentStatus(int id,
+    public static async Task<Results<NoContent, ProblemHttpResult>> TransitionShipmentStatus(int id,
         CargoFlowDbContext db, ShipmentStatusTransitionRequest body)
     {
         var shipment = await db.Shipments

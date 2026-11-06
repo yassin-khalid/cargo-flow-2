@@ -578,6 +578,7 @@ public class ShipmentIntegrationTests(LocalSqlWebApplicationFactory<Program> fac
 
    [Theory]
    [InlineData(ShipmentStatusName.Draft, ShipmentStatusName.OpenForOffers, 204)]
+   [InlineData(ShipmentStatusName.Draft, ShipmentStatusName.Cancelled, 204)]
    [InlineData(ShipmentStatusName.OpenForOffers, ShipmentStatusName.OffersReceived, 204)]
    [InlineData(ShipmentStatusName.OpenForOffers, ShipmentStatusName.Awarded, 204)]
    [InlineData(ShipmentStatusName.OpenForOffers, ShipmentStatusName.Cancelled, 204)]
@@ -603,13 +604,13 @@ public class ShipmentIntegrationTests(LocalSqlWebApplicationFactory<Program> fac
       var shipmentStatuses = await db.ShipmentStatuses.ToListAsync();
    
       // Make sure there is at lease one shipment for every shipment status
-      await ShipmentSeeder.SeedShipmentListWithUniqueStatusAsync(
+      var shipments = await ShipmentSeeder.SeedShipmentListWithUniqueStatusAsync(
          db,
          [.. shipmentStatuses.Select(ss => new ShipmentSpec(ss.Name, "Ton (t)", 200))]
       );
 
-      var shipment = await db.Shipments.FirstAsync(s => s.ShipmentStatus.Name == currentStatusName);
-      var targetStatus = await db.ShipmentStatuses.FirstAsync(ss => ss.Name == targetStatusName);
+      var shipment = shipments[currentStatusName];
+      var targetStatus = shipmentStatuses.First(ss => ss.Name == targetStatusName);
 
       var response = await _client.PatchAsync($"/api/shipments/{shipment.Id}/status", new StringContent(
          JsonSerializer.Serialize(new ShipmentStatusTransitionRequest(targetStatus.Id)),
@@ -641,5 +642,31 @@ public class ShipmentIntegrationTests(LocalSqlWebApplicationFactory<Program> fac
       {
          Assert.Equal(currentStatusName, verifyShipment.ShipmentStatus.Name);
       }
+   }
+
+   [Fact]
+   public async Task TransitionShipmentStatus_ConcurrentRequest_ShouldReturns409Conflict()
+   {
+      using var scope = factory.Services.CreateScope();
+      var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+      var reference = scope.ServiceProvider.GetRequiredService<IReferenceData>();
+
+      var openStatusId = reference.GetShipmentStatusId(ShipmentStatusName.OpenForOffers);
+
+      var (shipment, _) = await ShipmentSeeder.SeedShipmentWithOffersAsync(db, ShipmentStatusName.Draft, "Ton (t)", 200, []);
+      
+      using var concurrentScope = factory.Services.CreateScope();
+      var concurrentDb = concurrentScope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+      var concurrentShipment = await concurrentDb.Shipments.FirstAsync(s => s.Id == shipment.Id);
+      concurrentShipment.ShipmentStatusId = openStatusId;
+      await concurrentDb.SaveChangesAsync();
+
+
+      var response = await ShipmentEndpoints.TransitionShipmentStatus(shipment.Id, db, new ShipmentStatusTransitionRequest(openStatusId));
+
+      var result = Assert.IsType<ProblemHttpResult>(response.Result);
+      
+      Assert.Equal(StatusCodes.Status409Conflict, result.StatusCode);
+
    }
 }
