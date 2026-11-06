@@ -83,3 +83,8 @@ public record CreateShipmentRequestDto(
     decimal Weight,
     int WeightTypeId
 );
+
+public record ShipmentStatusTransitionRequest(
+    [property: JsonPropertyName(name: "status_id")]
+    int StatusId
+    );

@@ -61,5 +61,14 @@ POST {{CargoFlow_HostAddress}}/api/shipments/3/offers/6/withdraw
 POST {{CargoFlow_HostAddress}}/api/shipments/1/cancel
 ###
 
-GET {{CargoFlow_HostAddress}}/api/shipments?customer_id=12&shipment_status=2&page=2&page_size=10&sort_by=weight&sort_order=desc
+GET {{CargoFlow_HostAddress}}/api/shipments/3
 ###
+
+PATCH {{CargoFlow_HostAddress}}/api/shipments/3/status
+Content-Type: application/json
+
+{
+    "status_id": 8
+}
+
+

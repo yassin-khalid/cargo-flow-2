@@ -1,5 +1,8 @@
+using System.IO.Pipes;
 using System.Net;
 using System.Net.Http.Json;
+using System.Text;
+using System.Text.Json;
 using CargoFlow.Data;
 using CargoFlow.Domain.Enums;
 using CargoFlow.Dtos;
@@ -531,5 +534,93 @@ public class ShipmentIntegrationTests(LocalSqlWebApplicationFactory<Program> fac
             Assert.Equal(expectedIds.Take(actualIds.Count), actualIds);
          }
       }
+   }
+
+   [Fact]
+   public async Task TransitionShipmentStatus_ShouldReturns201WhenAllowed400WhenNotAllowed()
+   {
+      using var scope = factory.Services.CreateScope();
+      var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+
+      var shipmentId = await db.Shipments
+         .Select(s => s.Id)
+         .FirstAsync();
+
+      var shipmentStatuses = await db.ShipmentStatuses.ToListAsync();
+
+      foreach (var targetStatus in shipmentStatuses)
+      {
+         var currentStatus = await db.Shipments
+            .Where(s => s.Id == shipmentId)
+            .Select(s => s.ShipmentStatus.Name)
+            .FirstAsync();
+         
+         var allowedStatusNames = ShipmentStatusTransitions.GetAllowedTransitions(currentStatus);
+         
+         var response = await _client.PatchAsync($"/api/shipments/{shipmentId}/status",
+            new StringContent(
+               JsonSerializer.Serialize(new ShipmentStatusTransitionRequest(targetStatus.Id)),
+               Encoding.UTF8,
+               "application/json"
+            ));
+         
+         testOutputHelper.WriteLine(await response.Content.ReadAsStringAsync());
+         testOutputHelper.WriteLine($"transition from: '{currentStatus}' to '{targetStatus.Name}'");
+         testOutputHelper.WriteLine(
+            $"Allowed transitions for '{currentStatus}' is '{(allowedStatusNames is null ? "null" : string.Join(", ", allowedStatusNames))}'");
+         
+         if (allowedStatusNames is null)
+         {
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+         }
+         else if (allowedStatusNames.Contains(targetStatus.Name))
+         {
+            Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+         }
+         else
+         {
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+         }
+      }
+   }
+
+   [Fact]
+   public async Task TransitionShipmentStatus_ShouldReturns404WhenNoShipmentFound()
+   {
+      using var scope = factory.Services.CreateScope();
+      var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+
+      var shipmentId = await db.Shipments.MaxAsync(s => s.Id);
+      
+      var response = await _client.PatchAsync($"/api/shipments/{shipmentId + 100}/status",
+         new StringContent(
+            JsonSerializer.Serialize(new ShipmentStatusTransitionRequest(1)),
+            Encoding.UTF8,
+            "application/json"
+         ));
+      
+      Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+   }
+   
+   [Fact]
+   public async Task TransitionShipmentStatus_ShouldReturns404WhenNoStatusFound()
+   {
+      using var scope = factory.Services.CreateScope();
+      var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+
+      var shipmentId = await db.Shipments.Select(s => s.Id).FirstAsync();
+      
+      var statusId = await db.ShipmentStatuses.MaxAsync(s => s.Id);
+      
+      var response = await _client.PatchAsync($"/api/shipments/{shipmentId}/status",
+         new StringContent(
+            JsonSerializer.Serialize(new ShipmentStatusTransitionRequest(statusId + 100)),
+            Encoding.UTF8,
+            "application/json"
+         ));
+      
+      testOutputHelper.WriteLine(await response.Content.ReadAsStringAsync());
+      
+      Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
    }
 }

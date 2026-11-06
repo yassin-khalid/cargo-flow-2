@@ -7,7 +7,6 @@ using CargoFlow.Endpoints.Filters;
 using CargoFlow.Extensions;
 using CargoFlow.Helpers;
 using Microsoft.AspNetCore.Http.HttpResults;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 namespace CargoFlow.Endpoints;
@@ -25,6 +24,7 @@ public static class ShipmentEndpoints
         group.MapPost("/{id:int}/cancel", CancelShipment);
         group.MapPost("/{id:int}/start", StartShipment);
         group.MapPost("/{id:int}/deliver", DeliverShipment);
+        group.MapPatch("/{id:int}/status", TransitionShipmentStatus);
         return group;
     }
 
@@ -393,5 +393,56 @@ public static class ShipmentEndpoints
                 title: "Update Concurrency Conflict",
                 detail: $"Shipment {id} was modified or delivered by another concurrent request");
         }
+    }
+
+    private static async Task<Results<NoContent, ProblemHttpResult>> TransitionShipmentStatus(int id,
+        CargoFlowDbContext db, ShipmentStatusTransitionRequest body)
+    {
+        var shipment = await db.Shipments
+            .Include(s => s.ShipmentStatus)
+            .FirstOrDefaultAsync(s => s.Id == id);
+        
+        if (shipment is null)
+        {
+            return TypedResults.Problem(
+                statusCode: StatusCodes.Status404NotFound,
+                title: "Shipment Not Found",
+                detail: $"Shipment #{id} does not exist");
+        }
+
+        var targetStatus = await db.ShipmentStatuses.FirstOrDefaultAsync(ss => ss.Id == body.StatusId);
+        if (targetStatus is null)
+        {
+            return TypedResults.Problem(
+                statusCode: StatusCodes.Status404NotFound,
+                title: "Shipment Status Not Found",
+                detail: $"Shipment Status #{body.StatusId} does not exist");
+        }
+
+        var allowedTransitions = ShipmentStatusTransitions.GetAllowedTransitions(shipment.ShipmentStatus.Name);
+        if (allowedTransitions is null)
+        {
+            return TypedResults.Problem(
+                statusCode: StatusCodes.Status400BadRequest,
+                title: "Invalid Transition Request",
+                detail: $"Shipment #{id} has a '{shipment.ShipmentStatus.Name}' status and cannot be transitioned");
+        }
+        
+        var isTransitionAllowed = allowedTransitions.Contains(targetStatus.Name);
+
+        if (!isTransitionAllowed)
+        {
+            return TypedResults.Problem(
+                statusCode: StatusCodes.Status400BadRequest,
+                title: "Transition Not Allowed",
+                detail:
+                $"Shipment #{id} has a '{shipment.ShipmentStatus.Name}' status and cannot be transitioned to '{targetStatus.Name}' status");
+        }
+
+        shipment.ShipmentStatusId = targetStatus.Id;
+
+        await db.SaveChangesAsync();
+        return TypedResults.NoContent();
+
     }
 }
