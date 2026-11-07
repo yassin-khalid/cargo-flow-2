@@ -470,8 +470,8 @@ public static class ShipmentEndpoints
     private static async Task<Results<Ok<List<ShipmentStatusHistoryDto>>, ProblemHttpResult>> GetShipmentStatusHistory(
         int id, CargoFlowDbContext db)
     {
-        var shipment = await db.Shipments.FirstOrDefaultAsync(s => s.Id == id);
-        if (shipment is null)
+        var isShipmentExists = await db.Shipments.AnyAsync(s => s.Id == id);
+        if (!isShipmentExists)
         {
             return TypedResults.Problem(
                 statusCode: StatusCodes.Status404NotFound,
@@ -481,14 +481,17 @@ public static class ShipmentEndpoints
 
         var shipmentStatusHistories = await db.ShipmentStatusHistories
             .AsNoTracking()
-            .Include(ssh => ssh.ShipmentStatus)
             .Where(ssh => ssh.ShipmentId == id)
+            .Select(ssh => new {ssh.Id, Status = ssh.ShipmentStatus.Name.ToString(), ssh.DateTime})
             .OrderBy(ssh => ssh.DateTime)
+            .ThenBy(ssh => ssh.Id)
             .ToListAsync();
 
-        var shipmentStatusHistoryDtos = shipmentStatusHistories.Select(ssh =>
-            new ShipmentStatusHistoryDto(Enum.GetName(ssh.ShipmentStatus.Name)!, ssh.DateTime)
-        ).ToList();
+
+        var shipmentStatusHistoryDtos =
+            shipmentStatusHistories
+                .Select(ssh => new ShipmentStatusHistoryDto(ssh.Status ?? "No Status", ssh.DateTime))
+                .ToList();
 
         return TypedResults.Ok(shipmentStatusHistoryDtos);
 

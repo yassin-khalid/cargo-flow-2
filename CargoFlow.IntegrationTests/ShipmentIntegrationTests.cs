@@ -1,4 +1,3 @@
-using System.IO.Pipes;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text;
@@ -580,9 +579,9 @@ public class ShipmentIntegrationTests(LocalSqlWebApplicationFactory<Program> fac
    [InlineData(ShipmentStatusName.Draft, ShipmentStatusName.OpenForOffers, 204)]
    [InlineData(ShipmentStatusName.Draft, ShipmentStatusName.Cancelled, 204)]
    [InlineData(ShipmentStatusName.OpenForOffers, ShipmentStatusName.OffersReceived, 204)]
-   [InlineData(ShipmentStatusName.OpenForOffers, ShipmentStatusName.Awarded, 204)]
+   [InlineData(ShipmentStatusName.OpenForOffers, ShipmentStatusName.Awarded, 400)]
    [InlineData(ShipmentStatusName.OpenForOffers, ShipmentStatusName.Cancelled, 204)]
-   [InlineData(ShipmentStatusName.OffersReceived, ShipmentStatusName.Awarded, 204)]
+   [InlineData(ShipmentStatusName.OffersReceived, ShipmentStatusName.Awarded, 400)]
    [InlineData(ShipmentStatusName.OffersReceived, ShipmentStatusName.Cancelled, 204)]
    [InlineData(ShipmentStatusName.Awarded, ShipmentStatusName.InTransit, 204)]
    [InlineData(ShipmentStatusName.InTransit, ShipmentStatusName.Delivered, 204)]
@@ -675,16 +674,35 @@ public class ShipmentIntegrationTests(LocalSqlWebApplicationFactory<Program> fac
    {
       using var scope = factory.Services.CreateScope();
       var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
-      var (shipment, _) = await ShipmentSeeder.SeedShipmentWithOffersAsync(db, ShipmentStatusName.Draft, "Ton (t)", 200, []);
-      var shipmentStatusHistories =
-         await db.ShipmentStatusHistories.Where(ssh => ssh.ShipmentId == shipment.Id).ToListAsync();
 
-      var response = await _client.GetAsync($"/api/shipments/{shipment.Id}/status-history");
+      var (shipment, shipmentStatusHistories) = await ShipmentSeeder.SeedShipmentWithStatusHistoryAsync(
+         db,
+         ShipmentStatusName.Completed, 
+         "Ton (t)", 
+         100,
+      [
+         ShipmentStatusName.Awarded, ShipmentStatusName.Completed, ShipmentStatusName.OffersReceived,
+         ShipmentStatusName.Draft
+      ]);
+
+      var orderedShipmentStatusHistories = shipmentStatusHistories
+         .OrderBy(ssh => ssh.DateTime)
+         .ThenBy(ssh => ssh.Id)
+         .Select(ssh => new ShipmentStatusHistoryDto(ssh.ShipmentStatus.Name.ToString(), ssh.DateTime))
+         .ToList();
       
+      var response = await _client.GetAsync($"/api/shipments/{shipment.Id}/status-history");
+
       Assert.Equal(HttpStatusCode.OK, response.StatusCode);
       var content = await response.Content.ReadFromJsonAsync<List<ShipmentStatusHistoryDto>>();
       Assert.NotNull(content);
-      Assert.Equal(shipmentStatusHistories.Count, content.Count);
+      Assert.Equal(orderedShipmentStatusHistories.Count, content.Count);
+
+      for (var i = 0; i < orderedShipmentStatusHistories.Count; i++)
+      {
+         Assert.Equal(orderedShipmentStatusHistories[i].DateTime, content[i].DateTime);
+         Assert.Equal(orderedShipmentStatusHistories[i].Status, content[i].Status);
+      }
 
    }
    
@@ -698,5 +716,23 @@ public class ShipmentIntegrationTests(LocalSqlWebApplicationFactory<Program> fac
 
       var response = await _client.GetAsync($"/api/shipments/{maxId + 100}/status-history");
       Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+   }
+
+   [Fact]
+   public async Task GetShipmentStatusHistory_ShouldReturnsEmptyListForNoHistoryShipments()
+   {
+      using var scope = factory.Services.CreateScope();
+      var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+
+      var (shipment, _) =
+         await ShipmentSeeder.SeedShipmentWithOffersAsync(db, ShipmentStatusName.OpenForOffers, "Ton (t)", 200, []);
+
+      var response = await _client.GetAsync($"/api/shipments/{shipment.Id}/status-history");
+      
+      Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+      var result = await response.Content.ReadFromJsonAsync<List<ShipmentStatusHistoryDto>>();
+
+      Assert.NotNull(result);
+      Assert.Empty(result);
    }
 }

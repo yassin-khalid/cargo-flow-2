@@ -219,4 +219,69 @@ public static class ShipmentSeeder
             .Include(s => s.ShipmentStatus )
             .ToDictionaryAsync(s => s.ShipmentStatus.Name, cancellationToken: ct);
     }
+
+    public static async Task<(Shipment, List<ShipmentStatusHistory>)> SeedShipmentWithStatusHistoryAsync(CargoFlowDbContext db, 
+        ShipmentStatusName shipmentStatus, 
+        string weightType, 
+        decimal weight,
+        ShipmentStatusName[] shipmentStatusNames
+        )
+    {
+        var targetStatus = await db.ShipmentStatuses.FirstAsync(ss => ss.Name == shipmentStatus);
+        var targetType = await db.WeightTypes.FirstAsync(wt => wt.Name == weightType);
+        
+        var (pickup, destination) = GenerateUniqueAddresses();
+        
+        db.Addresses.AddRange(pickup, destination);
+
+        var uniqueSuffix = Guid.NewGuid().ToString()[..8];
+
+        var customer = new Customer()
+        {
+            Name = $"Cust-{uniqueSuffix}",
+            NationalId = $"Nat-{uniqueSuffix[..6]}"
+        };
+        db.Customers.Add(customer);
+        
+        await db.SaveChangesAsync();
+
+        var shipment = new Shipment()
+        {
+            DestinationId = destination.Id,
+            PickupId = pickup.Id,
+            Weight = weight,
+            CustomerId = customer.Id,
+            WeightTypeId = targetType.Id,
+            ShipmentStatusId = targetStatus.Id,
+        };
+
+        db.Shipments.Add(shipment);
+        await db.SaveChangesAsync();
+
+        List<int> shipmentStatusHistoryIds = [];
+        foreach (var name in shipmentStatusNames)
+        {
+            var shipmentStatusHistory = new ShipmentStatusHistory()
+            {
+                DateTime = DateTime.UtcNow,
+                ShipmentId = shipment.Id,
+                ShipmentStatusId = await db.ShipmentStatuses
+                    .Where(ss => ss.Name == name)
+                    .Select(ss => ss.Id)
+                    .FirstAsync()
+            };
+
+            db.ShipmentStatusHistories.Add(shipmentStatusHistory);
+            await db.SaveChangesAsync();
+            shipmentStatusHistoryIds.Add(shipmentStatusHistory.Id);
+        }
+
+        var shipmentStatusHistories = await db.ShipmentStatusHistories
+            .Include(ssh => ssh.ShipmentStatus)
+            .Where(ssh => shipmentStatusHistoryIds.Contains(ssh.Id))
+            .ToListAsync();
+        
+        return (shipment, shipmentStatusHistories);
+
+    }
 }

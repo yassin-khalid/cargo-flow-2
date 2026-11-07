@@ -89,4 +89,8 @@ public record ShipmentStatusTransitionRequest(
     int StatusId
     );
     
-    public record ShipmentStatusHistoryDto(string Status, DateTime Datetime);
+    public record ShipmentStatusHistoryDto(
+        [property: JsonPropertyName("status")]
+        string Status, 
+        [property: JsonPropertyName("date_time")]
+        DateTime DateTime);
