@@ -1,3 +1,4 @@
+using System.Net;
 using System.Text.Json;
 using CargoFlow.Data;
 using CargoFlow.Domain;
@@ -25,6 +26,7 @@ public static class ShipmentEndpoints
         group.MapPost("/{id:int}/start", StartShipment);
         group.MapPost("/{id:int}/deliver", DeliverShipment);
         group.MapPatch("/{id:int}/status", TransitionShipmentStatus);
+        group.MapGet("/{id:int}/status-history", GetShipmentStatusHistory);
         return group;
     }
 
@@ -462,6 +464,33 @@ public static class ShipmentEndpoints
                 title: "Database Update Concurrency Conflict",
                 detail: $"Shipment #{shipment.Id} status has been modified by another concurrent request");
         }
+
+    }
+
+    private static async Task<Results<Ok<List<ShipmentStatusHistoryDto>>, ProblemHttpResult>> GetShipmentStatusHistory(
+        int id, CargoFlowDbContext db)
+    {
+        var shipment = await db.Shipments.FirstOrDefaultAsync(s => s.Id == id);
+        if (shipment is null)
+        {
+            return TypedResults.Problem(
+                statusCode: StatusCodes.Status404NotFound,
+                title: "Shipment Not Found",
+                detail: $"Shipment #{id} does not exist");
+        }
+
+        var shipmentStatusHistories = await db.ShipmentStatusHistories
+            .AsNoTracking()
+            .Include(ssh => ssh.ShipmentStatus)
+            .Where(ssh => ssh.ShipmentId == id)
+            .OrderBy(ssh => ssh.DateTime)
+            .ToListAsync();
+
+        var shipmentStatusHistoryDtos = shipmentStatusHistories.Select(ssh =>
+            new ShipmentStatusHistoryDto(Enum.GetName(ssh.ShipmentStatus.Name)!, ssh.DateTime)
+        ).ToList();
+
+        return TypedResults.Ok(shipmentStatusHistoryDtos);
 
     }
 }

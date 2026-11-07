@@ -669,4 +669,34 @@ public class ShipmentIntegrationTests(LocalSqlWebApplicationFactory<Program> fac
       Assert.Equal(StatusCodes.Status409Conflict, result.StatusCode);
 
    }
+
+   [Fact]
+   public async Task GetShipmentStatusHistory_ShouldReturns200ForExistingShipments()
+   {
+      using var scope = factory.Services.CreateScope();
+      var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+      var (shipment, _) = await ShipmentSeeder.SeedShipmentWithOffersAsync(db, ShipmentStatusName.Draft, "Ton (t)", 200, []);
+      var shipmentStatusHistories =
+         await db.ShipmentStatusHistories.Where(ssh => ssh.ShipmentId == shipment.Id).ToListAsync();
+
+      var response = await _client.GetAsync($"/api/shipments/{shipment.Id}/status-history");
+      
+      Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+      var content = await response.Content.ReadFromJsonAsync<List<ShipmentStatusHistoryDto>>();
+      Assert.NotNull(content);
+      Assert.Equal(shipmentStatusHistories.Count, content.Count);
+
+   }
+   
+   
+   [Fact]
+   public async Task GetShipmentStatusHistory_ShouldReturns404ForNonExistingShipments()
+   {
+      using var scope = factory.Services.CreateScope();
+      var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+      var maxId = await db.Shipments.MaxAsync(s => s.Id);
+
+      var response = await _client.GetAsync($"/api/shipments/{maxId + 100}/status-history");
+      Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+   }
 }
