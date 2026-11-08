@@ -2,6 +2,7 @@ using System.Text.Json;
 using CargoFlow.Data;
 using CargoFlow.Endpoints;
 using CargoFlow.Helpers;
+using CargoFlow.Workers;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.EntityFrameworkCore;
 
@@ -11,6 +12,8 @@ builder.Services.AddDbContext<CargoFlowDbContext>(options =>
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower);
 builder.Services.AddSingleton<IReferenceData, ReferenceData>();
+builder.Services.AddScoped<IOfferExpirationService, OfferExpirationService>();
+builder.Services.AddHostedService<OfferExpirationWorker>();
 builder.Services.AddValidation();
 
 if (builder.Environment.IsDevelopment())

@@ -152,6 +152,9 @@ namespace CargoFlow.Migrations
                     b.Property<int>("CompanyId")
                         .HasColumnType("int");
 
+                    b.Property<DateTime>("ExpirationDate")
+                        .HasColumnType("datetime2");
+
                     b.Property<bool>("HasWon")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
