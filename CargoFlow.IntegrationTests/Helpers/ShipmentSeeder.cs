@@ -39,9 +39,9 @@ public static class ShipmentSeeder
 
     public static async Task<CreateShipmentRequestDto> GetValidCreateShipmentDtoAsync(CargoFlowDbContext db)
     {
-           
+
         var (pickup, destination) = GenerateUniqueAddresses();
-        
+
         db.Addresses.AddRange(pickup, destination);
 
         var uniqueSuffix = Guid.NewGuid().ToString()[..8];
@@ -52,30 +52,30 @@ public static class ShipmentSeeder
             NationalId = $"Nat-{uniqueSuffix[..6]}"
         };
         db.Customers.Add(customer);
-        
+
         var weightType = new WeightType()
         {
             Name = "Standard"
         };
 
         db.WeightTypes.Add(weightType);
-        
+
         await db.SaveChangesAsync();
 
         return new CreateShipmentRequestDto(customer.Id, pickup.Id, destination.Id, 20, weightType.Id);
     }
     public static async Task<(Shipment, List<Offer>)> SeedShipmentWithOffersAsync(
-        CargoFlowDbContext db, 
-        ShipmentStatusName shipmentStatus, 
-        string weightType, 
-        decimal weight, 
+        CargoFlowDbContext db,
+        ShipmentStatusName shipmentStatus,
+        string weightType,
+        decimal weight,
         OfferSpec[] offerSpecs)
     {
         var targetStatus = await db.ShipmentStatuses.FirstAsync(ss => ss.Name == shipmentStatus);
         var targetType = await db.WeightTypes.FirstAsync(wt => wt.Name == weightType);
-        
+
         var (pickup, destination) = GenerateUniqueAddresses();
-        
+
         db.Addresses.AddRange(pickup, destination);
 
         var uniqueSuffix = Guid.NewGuid().ToString()[..8];
@@ -86,7 +86,7 @@ public static class ShipmentSeeder
             NationalId = $"Nat-{uniqueSuffix[..6]}"
         };
         db.Customers.Add(customer);
-        
+
         await db.SaveChangesAsync();
 
         var shipment = new Shipment()
@@ -117,7 +117,7 @@ public static class ShipmentSeeder
 
             db.Companies.Add(company);
             await db.SaveChangesAsync();
-            
+
             var offerState = await db.OfferStates.FirstAsync(os => os.Name == spec.StateName);
             var offer = new Offer()
             {
@@ -126,7 +126,8 @@ public static class ShipmentSeeder
                 OfferStateId = offerState.Id,
                 Price = spec.Price,
                 ShipmentId = shipment.Id,
-                SubmittedDate = DateTime.UtcNow.AddMinutes(-i)
+                SubmittedDate = DateTime.UtcNow.AddMinutes(-i),
+                ExpirationDate = DateTime.UtcNow.AddMinutes(-i).AddDays(7)
             };
             db.Offers.Add(offer);
             await db.SaveChangesAsync();
@@ -142,7 +143,7 @@ public static class ShipmentSeeder
         CancellationToken ct = default
     )
     {
-        if (shipmentSpecs is {Length: 0})
+        if (shipmentSpecs is { Length: 0 })
         {
             return new Dictionary<ShipmentStatusName, Shipment>();
         }
@@ -159,9 +160,9 @@ public static class ShipmentSeeder
                 $"ShipmentStatus must be unique. Duplicates found: {string.Join(", ", duplicateStatuses)}",
                 nameof(shipmentSpecs));
         }
-        
+
         var uniqueSuffix = Guid.NewGuid().ToString("N")[..8];
-        
+
         var statusMap = await db.ShipmentStatuses
             .ToDictionaryAsync(ss => ss.Name, ct);
 
@@ -182,9 +183,9 @@ public static class ShipmentSeeder
             {
                 throw new ArgumentException($"Unknown weight type: {spec.WeightType}");
             }
-        
+
             var (pickup, destination) = GenerateUniqueAddresses();
-        
+
             db.Addresses.AddRange(pickup, destination);
 
             var subSuffix = $"{uniqueSuffix}-{i}";
@@ -195,7 +196,7 @@ public static class ShipmentSeeder
                 NationalId = $"Nat-{i}-{subSuffix[..4]}"
             };
             db.Customers.Add(customer);
-        
+
             await db.SaveChangesAsync(ct);
 
             var shipment = new Shipment()
@@ -213,25 +214,25 @@ public static class ShipmentSeeder
         }
 
         await db.SaveChangesAsync(ct);
-        
+
         return await db.Shipments
             .Where(s => created.Select(c => c.Id).Contains(s.Id))
-            .Include(s => s.ShipmentStatus )
+            .Include(s => s.ShipmentStatus)
             .ToDictionaryAsync(s => s.ShipmentStatus.Name, cancellationToken: ct);
     }
 
-    public static async Task<(Shipment, List<ShipmentStatusHistory>)> SeedShipmentWithStatusHistoryAsync(CargoFlowDbContext db, 
-        ShipmentStatusName shipmentStatus, 
-        string weightType, 
+    public static async Task<(Shipment, List<ShipmentStatusHistory>)> SeedShipmentWithStatusHistoryAsync(CargoFlowDbContext db,
+        ShipmentStatusName shipmentStatus,
+        string weightType,
         decimal weight,
         ShipmentStatusName[] shipmentStatusNames
         )
     {
         var targetStatus = await db.ShipmentStatuses.FirstAsync(ss => ss.Name == shipmentStatus);
         var targetType = await db.WeightTypes.FirstAsync(wt => wt.Name == weightType);
-        
+
         var (pickup, destination) = GenerateUniqueAddresses();
-        
+
         db.Addresses.AddRange(pickup, destination);
 
         var uniqueSuffix = Guid.NewGuid().ToString()[..8];
@@ -242,7 +243,7 @@ public static class ShipmentSeeder
             NationalId = $"Nat-{uniqueSuffix[..6]}"
         };
         db.Customers.Add(customer);
-        
+
         await db.SaveChangesAsync();
 
         var shipment = new Shipment()
@@ -280,7 +281,7 @@ public static class ShipmentSeeder
             .Include(ssh => ssh.ShipmentStatus)
             .Where(ssh => shipmentStatusHistoryIds.Contains(ssh.Id))
             .ToListAsync();
-        
+
         return (shipment, shipmentStatusHistories);
 
     }

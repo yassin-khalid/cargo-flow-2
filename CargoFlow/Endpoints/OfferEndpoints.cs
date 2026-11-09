@@ -52,10 +52,10 @@ public static class OfferEndpoints
                 .Select(o => new OfferDto(o.Id, o.ShipmentId, o.CompanyId, o.SubmittedDate, o.Price, o.OfferStateId,
                     o.HasWon))
                 .FirstOrDefaultAsync() switch
-            {
-                { } offer => TypedResults.Ok(offer),
-                _ => HttpResultProblems.NotFoundProblem("offer_id", id)
-            };
+        {
+            { } offer => TypedResults.Ok(offer),
+            _ => HttpResultProblems.NotFoundProblem("offer_id", id)
+        };
     }
     private static async Task<Results<CreatedAtRoute<OfferDto>, NotFound, ValidationProblem, ProblemHttpResult>> SubmitOffer(
        int shipmentId,
@@ -87,7 +87,7 @@ public static class OfferEndpoints
 
         var offerReceivedStatusId = referenceData.GetShipmentStatusId(ShipmentStatusName.OffersReceived);
         var openForOffersStatusId = referenceData.GetShipmentStatusId(ShipmentStatusName.OpenForOffers);
-        
+
         if (shipment.ShipmentStatusId != offerReceivedStatusId && shipment.ShipmentStatusId != openForOffersStatusId)
         {
             return TypedResults.Problem(
@@ -105,7 +105,8 @@ public static class OfferEndpoints
             OfferStateId = submittedStateId,
             Price = body.Price,
             SubmittedDate = DateTime.UtcNow,
-            HasWon = false
+            HasWon = false,
+            ExpirationDate = DateTime.UtcNow.AddDays(7)
         };
 
         db.Offers.Add(offer);
@@ -162,16 +163,16 @@ public static class OfferEndpoints
         return TypedResults.CreatedAtRoute(
             routeName: EndpointRouteNames.GetShipmentOfferByIdRoute,
             value: new OfferDto(
-                offer.Id, 
-                offer.ShipmentId, 
-                offer.CompanyId, 
-                offer.SubmittedDate, 
+                offer.Id,
+                offer.ShipmentId,
+                offer.CompanyId,
+                offer.SubmittedDate,
                 offer.Price,
-                offer.OfferStateId, 
-                offer.HasWon), 
-            routeValues:  new
+                offer.OfferStateId,
+                offer.HasWon),
+            routeValues: new
             {
-                id = offer.Id, 
+                id = offer.Id,
                 shipmentId
             });
     }
@@ -192,7 +193,7 @@ public static class OfferEndpoints
             .FirstOrDefaultAsync(o => o.Id == offerId && o.ShipmentId == shipmentId);
         if (offer is null)
         {
-            
+
             return TypedResults.Problem(
                 statusCode: StatusCodes.Status404NotFound,
                 title: "Offer not found",
@@ -221,14 +222,23 @@ public static class OfferEndpoints
             );
         }
 
+        if (offer.ExpirationDate <= DateTime.UtcNow)
+        {
+            return TypedResults.Problem(
+
+                statusCode: StatusCodes.Status409Conflict,
+                title: "Offer Expiry Issue",
+                detail: $"Offer #{offerId} has passed its expiry date and cannot be awarded");
+        }
+
         var submittedStateId = referenceData.GetOfferStateId(OfferStateName.Submitted);
-        
+
         if (offer.OfferStateId != submittedStateId)
         {
             return TypedResults.Problem(
                 statusCode: StatusCodes.Status409Conflict,
                 title: "Offer State Conflict",
-                detail: $"offer #{offer.Id} cannot be awarded, only 'Submitted' offers can");           
+                detail: $"offer #{offer.Id} cannot be awarded, only 'Submitted' offers can");
         }
 
         var rejectedStateId = referenceData.GetOfferStateId(OfferStateName.Rejected);
@@ -243,7 +253,7 @@ public static class OfferEndpoints
         {
             oo.OfferStateId = rejectedStateId;
         }
-            
+
         offer.OfferStateId = acceptedStateId;
         offer.HasWon = true;
         shipment.ShipmentStatusId = awardedStatusId;
@@ -303,7 +313,7 @@ public static class OfferEndpoints
 
         var offersReceivedStatusId = referenceData.GetShipmentStatusId(ShipmentStatusName.OffersReceived);
         var openForOffersStatusId = referenceData.GetShipmentStatusId(ShipmentStatusName.OpenForOffers);
-        
+
         if (shipment.ShipmentStatusId != offersReceivedStatusId
             && shipment.ShipmentStatusId != openForOffersStatusId)
         {
@@ -320,7 +330,7 @@ public static class OfferEndpoints
             return TypedResults.Problem(
                 statusCode: StatusCodes.Status409Conflict,
                 title: "Offer State Conflict Error",
-                detail: $"offer #{offerId} does not have 'Submitted' state");           
+                detail: $"offer #{offerId} does not have 'Submitted' state");
         }
 
         var withdrawnStateId = referenceData.GetOfferStateId(OfferStateName.Withdrawn);
@@ -341,5 +351,5 @@ public static class OfferEndpoints
 
         return TypedResults.NoContent();
     }
-    
+
 }

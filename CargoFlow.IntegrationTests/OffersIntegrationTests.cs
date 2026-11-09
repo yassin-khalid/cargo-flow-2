@@ -316,4 +316,39 @@ public class OffersIntegrationTests(LocalSqlWebApplicationFactory<Program> facto
         Assert.All(expiredOffers, o => Assert.Equal(expiredStateId, o.OfferStateId));
 
     }
+
+    [Fact]
+    public async Task CheckAndMarkExpirationOffersAsync_ShouldKeepUnexpiredOffersStatus()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+        var referenceData = scope.ServiceProvider.GetRequiredService<IReferenceData>();
+        var offerExpirationService = scope.ServiceProvider.GetRequiredService<IOfferExpirationService>();
+
+        var expiredStateId = referenceData.GetOfferStateId(OfferStateName.Expired);
+
+        var now = DateTime.UtcNow;
+
+        var unexpiredOffers = await db.Offers
+            .Where(o => o.ExpirationDate > now)
+            .ToListAsync();
+
+        var unexpiredIds = unexpiredOffers.Select(o => o.Id).ToList();
+
+        await offerExpirationService.CheckAndMarkExpirationOfferAsync(CancellationToken.None);
+
+        using var verifyScope = factory.Services.CreateScope();
+        var verifyDb = verifyScope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+
+        var verifyUnexpiredOffers = await verifyDb.Offers
+            .Where(o => unexpiredIds.Contains(o.Id))
+            .ToListAsync();
+
+        var expectedStates = unexpiredOffers.ToDictionary(o => o.Id, o => o.OfferStateId);
+        foreach (var offer in verifyUnexpiredOffers)
+        {
+            Assert.True(expectedStates.TryGetValue(offer.Id, out var expectedState));
+            Assert.Equal(expectedState, offer.OfferStateId);
+        }
+    }
 }
