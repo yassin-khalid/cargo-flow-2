@@ -98,15 +98,17 @@ public static class OfferEndpoints
 
         var submittedStateId = referenceData.GetOfferStateId(OfferStateName.Submitted);
 
+        var now = DateTime.UtcNow;
+
         var offer = new Offer()
         {
             CompanyId = body.CompanyId,
             ShipmentId = shipmentId,
             OfferStateId = submittedStateId,
             Price = body.Price,
-            SubmittedDate = DateTime.UtcNow,
+            SubmittedDate = now,
             HasWon = false,
-            ExpirationDate = DateTime.UtcNow.AddDays(7)
+            ExpirationDate = now.AddDays(7)
         };
 
         db.Offers.Add(offer);

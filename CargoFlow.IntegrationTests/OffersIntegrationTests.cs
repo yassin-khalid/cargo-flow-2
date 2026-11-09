@@ -9,11 +9,12 @@ using CargoFlow.IntegrationTests.Helpers;
 using CargoFlow.Workers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Xunit.Abstractions;
 
 namespace CargoFlow.IntegrationTests;
 
 [Collection("Database collection")]
-public class OffersIntegrationTests(LocalSqlWebApplicationFactory<Program> factory)
+public class OffersIntegrationTests(LocalSqlWebApplicationFactory<Program> factory, ITestOutputHelper testOutputHelper)
 {
     private readonly HttpClient _client = factory.CreateClient();
 
@@ -299,10 +300,21 @@ public class OffersIntegrationTests(LocalSqlWebApplicationFactory<Program> facto
 
         var now = DateTime.UtcNow;
 
-        var toBeExpiredOfferIds = await db.Offers
-            .Where(o => o.ExpirationDate <= now && o.OfferStateId != expiredStateId)
-            .Select(o => o.Id)
-            .ToListAsync();
+        var (_, toBeExpiredOffers) = await OfferSeeder.SeedOffersWithSumittedAndExpirationDate(db, [
+                new("Test Company", 1000, now.AddDays(-14), now.AddDays(-7)),
+                new("Test Company", 1000, now.AddDays(-14), now.AddDays(-7)),
+                new("Test Company", 1000, now.AddDays(-14), now.AddDays(-7)),
+                new("Test Company", 1000, now.AddDays(-14), now.AddDays(-7)),
+                new("Test Company", 1000, now.AddDays(-14), now.AddDays(-7)),
+                new("Test Company", 1000, now.AddDays(-14), now.AddDays(-7)),
+                new("Test Company", 1000, now.AddDays(-14), now.AddDays(-7)),
+                new("Test Company", 1000, now.AddDays(-14), now.AddDays(-7)),
+                new("Test Company", 1000, now.AddDays(-14), now.AddDays(-7)),
+                new("Test Company", 1000, now.AddDays(-14), now.AddDays(-7)),
+                new("Test Company", 1000, now.AddDays(-14), now.AddDays(-7)),
+        ]);
+
+        var toBeExpiredOfferIds = toBeExpiredOffers.Select(o => o.Id);
 
         await offerExpirationService.CheckAndMarkExpirationOfferAsync(CancellationToken.None);
 
@@ -329,9 +341,14 @@ public class OffersIntegrationTests(LocalSqlWebApplicationFactory<Program> facto
 
         var now = DateTime.UtcNow;
 
-        var unexpiredOffers = await db.Offers
-            .Where(o => o.ExpirationDate > now)
-            .ToListAsync();
+        var (_, unexpiredOffers) = await OfferSeeder.SeedOffersWithSumittedAndExpirationDate(db, [
+            new("Test Company", 1000, now, now.AddDays(7), OfferStateName.Accepted),
+            new("Test Company", 1000, now, now.AddDays(7), OfferStateName.UnderReview),
+            new("Test Company", 1000, now, now.AddDays(7), OfferStateName.Rejected),
+            new("Test Company", 1000, now, now.AddDays(7), OfferStateName.Withdrawn),
+            new("Test Company", 1000, now, now.AddDays(7), OfferStateName.Submitted),
+            new("Test Company", 1000, now, now.AddDays(7), OfferStateName.Expired),
+        ]);
 
         var unexpiredIds = unexpiredOffers.Select(o => o.Id).ToList();
 
@@ -344,11 +361,29 @@ public class OffersIntegrationTests(LocalSqlWebApplicationFactory<Program> facto
             .Where(o => unexpiredIds.Contains(o.Id))
             .ToListAsync();
 
+        testOutputHelper.WriteLine(verifyUnexpiredOffers[0].OfferStateId.ToString());
         var expectedStates = unexpiredOffers.ToDictionary(o => o.Id, o => o.OfferStateId);
         foreach (var offer in verifyUnexpiredOffers)
         {
             Assert.True(expectedStates.TryGetValue(offer.Id, out var expectedState));
             Assert.Equal(expectedState, offer.OfferStateId);
         }
+    }
+
+    [Fact]
+    public async Task AwardOffer_SumittedOfferThatPassTheExpiration_ShouldReturns409Conflict()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+
+        var now = DateTime.Now;
+
+        var (shipment, offers) = await OfferSeeder.SeedOffersWithSumittedAndExpirationDate(db, [
+            new("Test Company", 100, now.AddDays(-14), now.AddDays(-7), OfferStateName.Submitted),
+        ]);
+
+        var response = await _client.PostAsJsonAsync($"/api/shipments/{shipment.Id}/offers/{offers[0].Id}/award", new { });
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
     }
 }
