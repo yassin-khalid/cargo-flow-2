@@ -330,7 +330,7 @@ public class OffersIntegrationTests(LocalSqlWebApplicationFactory<Program> facto
     }
 
     [Fact]
-    public async Task CheckAndMarkExpirationOffersAsync_ShouldKeepUnexpiredOffersStatus()
+    public async Task CheckAndMarkExpirationOffersAsync_ShouldKeepUnsubmittedOffersStatus()
     {
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
@@ -348,6 +348,14 @@ public class OffersIntegrationTests(LocalSqlWebApplicationFactory<Program> facto
             new("Test Company", 1000, now, now.AddDays(7), OfferStateName.Withdrawn),
             new("Test Company", 1000, now, now.AddDays(7), OfferStateName.Submitted),
             new("Test Company", 1000, now, now.AddDays(7), OfferStateName.Expired),
+
+
+
+            new("Test Company", 1000, now.AddDays(-14), now.AddDays(-7), OfferStateName.Accepted),
+            new("Test Company", 1000, now.AddDays(-14), now.AddDays(-7), OfferStateName.UnderReview),
+            new("Test Company", 1000, now.AddDays(-14), now.AddDays(-7), OfferStateName.Rejected),
+            new("Test Company", 1000, now.AddDays(-14), now.AddDays(-7), OfferStateName.Withdrawn),
+            new("Test Company", 1000, now.AddDays(-14), now.AddDays(-7), OfferStateName.Expired),
         ]);
 
         var unexpiredIds = unexpiredOffers.Select(o => o.Id).ToList();
@@ -361,7 +369,6 @@ public class OffersIntegrationTests(LocalSqlWebApplicationFactory<Program> facto
             .Where(o => unexpiredIds.Contains(o.Id))
             .ToListAsync();
 
-        testOutputHelper.WriteLine(verifyUnexpiredOffers[0].OfferStateId.ToString());
         var expectedStates = unexpiredOffers.ToDictionary(o => o.Id, o => o.OfferStateId);
         foreach (var offer in verifyUnexpiredOffers)
         {
@@ -376,7 +383,7 @@ public class OffersIntegrationTests(LocalSqlWebApplicationFactory<Program> facto
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
 
-        var now = DateTime.Now;
+        var now = DateTime.UtcNow;
 
         var (shipment, offers) = await OfferSeeder.SeedOffersWithSumittedAndExpirationDate(db, [
             new("Test Company", 100, now.AddDays(-14), now.AddDays(-7), OfferStateName.Submitted),
