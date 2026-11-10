@@ -37,6 +37,10 @@ group
     .MapShipmentEndpoints()
     .MapOfferEndpoints();
 
+group
+    .MapGroup("/notifications")
+    .MapNotificationsEndpoints();
+
 
 app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
 {

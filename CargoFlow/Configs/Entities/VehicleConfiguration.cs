@@ -10,10 +10,11 @@ public class VehicleConfiguration : IEntityTypeConfiguration<Vehicle>
     {
         builder.Property(v => v.InspectionId).HasMaxLength(20).IsRequired();
         builder.Property(v => v.InsuranceId).HasMaxLength(20).IsRequired();
+        builder.Property(v => v.MaxWeight).HasPrecision(18, 2).IsRequired();
         builder.HasIndex(v => v.InspectionId).IsUnique();
         builder.HasIndex(v => v.InsuranceId).IsUnique();
-        builder.ToTable(v => v.HasCheckConstraint("Ck_Vehicle_MaxWeight_Min", "[MaxWeight] > 0")); 
-        
+        builder.ToTable(v => v.HasCheckConstraint("Ck_Vehicle_MaxWeight_Min", "[MaxWeight] > 0"));
+
         builder
             .HasOne(v => v.Company)
             .WithMany(c => c.Vehicles)

@@ -17,6 +17,7 @@ public class CargoFlowDbContext(DbContextOptions<CargoFlowDbContext> options) : 
     public DbSet<Vehicle> Vehicles => Set<Vehicle>();
     public DbSet<WeightType> WeightTypes => Set<WeightType>();
     public DbSet<ShipmentStatusHistory> ShipmentStatusHistories => Set<ShipmentStatusHistory>();
+    public DbSet<Notification> Notifications => Set<Notification>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -31,5 +32,6 @@ public class CargoFlowDbContext(DbContextOptions<CargoFlowDbContext> options) : 
         modelBuilder.ApplyConfiguration(new ShipmentStatusHistoryConfiguration());
         modelBuilder.ApplyConfiguration(new VehicleConfiguration());
         modelBuilder.ApplyConfiguration(new WeightTypeConfiguration());
+        modelBuilder.ApplyConfiguration(new NotificationConfiguration());
     }
 }

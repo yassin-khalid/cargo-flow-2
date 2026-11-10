@@ -70,5 +70,6 @@ Content-Type: application/json
 {
     "status_id": 8
 }
+###
 
-
+GET {{CargoFlow_HostAddress}}/api/notifications?recipient_type=customer&notification_type=offer_awarde
