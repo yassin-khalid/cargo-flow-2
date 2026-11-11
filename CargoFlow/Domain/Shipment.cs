@@ -20,6 +20,7 @@ public class Shipment
     public ShipmentStatus ShipmentStatus { get; set; }
     public List<Offer> Offers { get; set; } = [];
     public List<ShipmentStatusHistory> ShipmentStatusHistories { get; set; } = [];
+    public List<Notification> Notifications { get; set; } = [];
     [Timestamp]
     public byte[] RowVersion { get; set; }
 }

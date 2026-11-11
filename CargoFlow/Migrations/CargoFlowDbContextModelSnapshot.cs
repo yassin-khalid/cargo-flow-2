@@ -183,6 +183,10 @@ namespace CargoFlow.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ShipmentId");
+
+                    b.HasIndex("RecipientId", "RecipientType", "CreatedAt");
+
                     b.ToTable("Notifications");
                 });
 
@@ -537,6 +541,17 @@ namespace CargoFlow.Migrations
                     b.Navigation("Company");
                 });
 
+            modelBuilder.Entity("CargoFlow.Domain.Notification", b =>
+                {
+                    b.HasOne("CargoFlow.Domain.Shipment", "Shipment")
+                        .WithMany("Notifications")
+                        .HasForeignKey("ShipmentId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Shipment");
+                });
+
             modelBuilder.Entity("CargoFlow.Domain.Offer", b =>
                 {
                     b.HasOne("CargoFlow.Domain.Company", "Company")
@@ -673,6 +688,8 @@ namespace CargoFlow.Migrations
 
             modelBuilder.Entity("CargoFlow.Domain.Shipment", b =>
                 {
+                    b.Navigation("Notifications");
+
                     b.Navigation("Offers");
 
                     b.Navigation("ShipmentStatusHistories");

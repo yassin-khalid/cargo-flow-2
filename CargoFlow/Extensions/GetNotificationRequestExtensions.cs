@@ -19,8 +19,9 @@ public static class GetNotificationRequestExtensions
     }
     public static GetNotificationQuery ToQuery(this GetNotificationRequestDto dto)
     {
+
         return new GetNotificationQuery(
-            ToEnum<RecipientType>(dto.RecipientType),
+         Enum.Parse<RecipientType>(dto.RecipientType, true),
             dto.RecipientId,
             dto.ShipmentId,
             ToEnum<NotificationType>(dto.NotificationType),

@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace CargoFlow.Configs.Entities;
 
-public class DriverConfiguration: IEntityTypeConfiguration<Driver>
+public class DriverConfiguration : IEntityTypeConfiguration<Driver>
 {
     public void Configure(EntityTypeBuilder<Driver> builder)
     {

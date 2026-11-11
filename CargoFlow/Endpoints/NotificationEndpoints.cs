@@ -13,9 +13,12 @@ public static class NotificationEndpoints
     {
         group.MapGet("/", GetNotifications)
             .AddEndpointFilter<GetNotificationValidationFilter>();
-        group.MapGet("/unread-count", GetUnreadNotificationCount);
-        group.MapPatch("/{id:int}/read", MarkNotificationAsRead);
-        group.MapPatch("/read-all", MarkAllNotificationsAsRead);
+        group.MapGet("/unread-count", GetUnreadNotificationCount)
+            .AddEndpointFilter<MarkNotificationAsReadValidationFilter>();
+        group.MapPatch("/{id:int}/read", MarkNotificationAsRead)
+            .AddEndpointFilter<MarkNotificationAsReadValidationFilter>();
+        group.MapPatch("/read-all", MarkAllNotificationsAsRead)
+            .AddEndpointFilter<MarkNotificationAsReadValidationFilter>();
         return group;
     }
 
@@ -30,16 +33,10 @@ public static class NotificationEndpoints
             message,
             isRead) = query;
 
-        var notifications = db.Notifications.AsNoTracking();
+        var notifications = db.Notifications
+            .AsNoTracking()
+            .Where(n => n.RecipientType == recipientType && n.RecipientId == recipientId);
 
-        if (recipientType is not null)
-        {
-            notifications = notifications.Where(n => n.RecipientType == recipientType);
-        }
-        if (recipientId is not null)
-        {
-            notifications = notifications.Where(n => n.RecipientId == recipientId);
-        }
         if (notificationType is not null)
         {
             notifications = notifications.Where(n => n.Type == notificationType);
@@ -61,6 +58,7 @@ public static class NotificationEndpoints
             notifications = notifications.Where(n => read ? n.ReadAt != null : n.ReadAt == null);
         }
 
+        notifications = notifications.OrderByDescending(n => n.CreatedAt);
         var result = await notifications.Select(n => new NotificationDto(n.Id,
             n.RecipientType.ToString(),
             n.RecipientId,
@@ -90,21 +88,14 @@ public static class NotificationEndpoints
         var query = dto.ToQuery();
         var (recipientId, recipientType) = query;
 
-        var notification = await db.Notifications.FirstOrDefaultAsync(n => n.Id == id);
+        var notification = await db.Notifications
+        .FirstOrDefaultAsync(n => n.Id == id && n.RecipientId == recipientId && n.RecipientType == recipientType);
         if (notification is null)
         {
             return TypedResults.Problem(
                 statusCode: StatusCodes.Status404NotFound,
                 title: "Notification Not Found",
                 detail: $"Notification #{id} does not exist"
-            );
-        }
-        if (notification.RecipientId != recipientId || notification.RecipientType != recipientType)
-        {
-            return TypedResults.Problem(
-                statusCode: StatusCodes.Status409Conflict,
-                title: "Notification Recipient Conflict",
-                detail: $"{recipientType} #{recipientId} can not mark notification #{id} as read"
             );
         }
         if (notification.ReadAt is not null)

@@ -25,5 +25,12 @@ public class NotificationConfiguration : IEntityTypeConfiguration<Notification>
         .HasConversion<string>()
         .HasMaxLength(50)
         .IsRequired();
+
+        builder.HasOne(n => n.Shipment)
+            .WithMany(s => s.Notifications)
+            .HasForeignKey(n => n.ShipmentId)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        builder.HasIndex(n => new { n.RecipientId, n.RecipientType, n.CreatedAt });
     }
 }

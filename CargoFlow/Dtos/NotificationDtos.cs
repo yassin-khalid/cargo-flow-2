@@ -16,9 +16,9 @@ public record NotificationDto(
 
 public record GetNotificationRequestDto(
     [FromQuery(Name = "recipient_type")]
-    string? RecipientType,
+    string RecipientType,
     [FromQuery(Name = "recipient_id")]
-    int? RecipientId,
+    int RecipientId,
     [FromQuery(Name = "shipment_id")]
     int? ShipmentId,
     [FromQuery(Name = "notification_type")]
@@ -41,8 +41,8 @@ public record MarkNotificationAsReadQuery(
     RecipientType RecipientType);
 
 public record GetNotificationQuery(
-    RecipientType? RecipientType,
-    int? RecipientId,
+    RecipientType RecipientType,
+    int RecipientId,
     int? ShipmentId,
     NotificationType? NotificationType,
     string? Title,

@@ -7,11 +7,6 @@ public static class MarkNotificationAsReadRequestExtensions
 {
     public static MarkNotificationAsReadQuery ToQuery(this MarkNotificationAsReadRequestDto dto)
     {
-        var recipientType = dto.RecipientType switch
-        {
-            "company" => RecipientType.Company,
-            _ => RecipientType.Customer
-        };
-        return new(dto.RecipientId, recipientType);
+        return new(dto.RecipientId, Enum.Parse<RecipientType>(dto.RecipientType, true));
     }
 }

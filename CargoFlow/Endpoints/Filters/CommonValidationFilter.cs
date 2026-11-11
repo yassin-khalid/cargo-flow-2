@@ -18,8 +18,8 @@ public static class CommonValidationFilter
             if (validationType == ValidationType.Required)
             {
                 errors[key] = [$"{key} parameter is required please provide it"];
-                return;
             }
+            return;
         }
         if (!int.TryParse(keyString, out var keyValue) || keyValue < 1)
         {
@@ -34,8 +34,8 @@ public static class CommonValidationFilter
             if (validationType == ValidationType.Required)
             {
                 errors[key] = [$"{key} parameter is required please provide it"];
-                return;
             }
+            return;
         }
         var values = Enum.GetNames<T>().Select(JsonNamingPolicy.SnakeCaseLower.ConvertName).ToList();
         if (!values.Contains(keyString!))
@@ -51,12 +51,12 @@ public static class CommonValidationFilter
             if (validationType == ValidationType.Required)
             {
                 errors[key] = [$"{key} parameter is required please provide it"];
-                return;
             }
-            if (!bool.TryParse(keyString, out _))
-            {
-                errors[key] = [$"{key} must be a boolean value"];
-            }
+            return;
+        }
+        if (!bool.TryParse(keyString, out _))
+        {
+            errors[key] = [$"{key} must be a boolean value"];
         }
     }
 }
