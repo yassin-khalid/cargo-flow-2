@@ -3,7 +3,7 @@ using CargoFlow.Dtos;
 
 namespace CargoFlow.Extensions;
 
-public static class NotificationRequestExtensions
+public static class GetNotificationRequestExtensions
 {
     private static T? ToEnum<T>(string? value) where T : struct, Enum
     {

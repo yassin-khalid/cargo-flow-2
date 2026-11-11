@@ -73,3 +73,6 @@ Content-Type: application/json
 ###
 
 GET {{CargoFlow_HostAddress}}/api/notifications?recipient_type=customer&notification_type=offer_awarde
+###
+
+GET {{CargoFlow_HostAddress}}/api/notifications/unread-count

@@ -30,6 +30,16 @@ public record GetNotificationRequestDto(
     [FromQuery(Name = "is_read")]
     bool? IsRead);
 
+public record MarkNotificationAsReadRequestDto(
+    [FromQuery(Name = "recipient_type")]
+    string RecipientType,
+    [FromQuery(Name = "recipient_id")]
+    int RecipientId);
+
+public record MarkNotificationAsReadQuery(
+    int RecipientId,
+    RecipientType RecipientType);
+
 public record GetNotificationQuery(
     RecipientType? RecipientType,
     int? RecipientId,

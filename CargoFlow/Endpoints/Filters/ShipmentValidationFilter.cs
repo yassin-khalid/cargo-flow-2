@@ -15,7 +15,7 @@ public class ShipmentValidationFilter : IEndpointFilter
     private const string SortByKey = "sort_by";
 
     private static readonly int[] AllowedPageSizes = [5, 10, 15, 25, 50, 100];
-    
+
     public async ValueTask<object?> InvokeAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
     {
         var query = context.HttpContext.Request.Query;
@@ -38,13 +38,13 @@ public class ShipmentValidationFilter : IEndpointFilter
             }
         }
 
-        ValidateOptionalEnumFilter<ShipmentSortBy>(query, SortByKey, errors);
-        ValidateOptionalEnumFilter<ShipmentSortDirection>(query, SortOrderKey, errors);
-        
-        ValidateOptionalIntFilter(query, CustomerIdKey, errors);
-        ValidateOptionalIntFilter(query, ShipmentStatusKey, errors);
-        ValidateOptionalIntFilter(query, PickupAddressKey, errors);
-        ValidateOptionalIntFilter(query, DestinationAddressKey, errors);
+        CommonValidationFilter.ValidateEnumFilter<ShipmentSortBy>(query, SortByKey, errors);
+        CommonValidationFilter.ValidateEnumFilter<ShipmentSortDirection>(query, SortOrderKey, errors);
+
+        CommonValidationFilter.ValidateIntFilter(query, CustomerIdKey, errors);
+        CommonValidationFilter.ValidateIntFilter(query, ShipmentStatusKey, errors);
+        CommonValidationFilter.ValidateIntFilter(query, PickupAddressKey, errors);
+        CommonValidationFilter.ValidateIntFilter(query, DestinationAddressKey, errors);
 
         if (errors is { Count: > 0 })
         {
@@ -59,26 +59,5 @@ public class ShipmentValidationFilter : IEndpointFilter
         }
 
         return await next(context);
-    }
-
-    private static void ValidateOptionalIntFilter(IQueryCollection query, string key, Dictionary<string, string[]> errors)
-    {
-        if (!query.TryGetValue(key, out var keyStr)) return;
-        if (!int.TryParse(keyStr, out var keyInt) || keyInt < 1)
-        {
-            errors[key] = [$"{key} must be a valid positive integer"];
-        }
-    }
-
-    private static void ValidateOptionalEnumFilter<T>(IQueryCollection query, string key,
-        Dictionary<string, string[]> errors) where T : struct, Enum
-    {
-        if (!query.TryGetValue(key, out var keyStr) || string.IsNullOrWhiteSpace(keyStr)) return;
-        var values = Enum.GetNames<T>().Select(JsonNamingPolicy.SnakeCaseLower.ConvertName).ToList();
-        if (!values.Contains(keyStr!))
-        {
-            errors[key] =
-                [$"{key} must be one of: [{string.Join(", ", values)}]"];
-        }
     }
 }

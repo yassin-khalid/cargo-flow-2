@@ -1,5 +1,4 @@
 using CargoFlow.Data;
-using CargoFlow.Domain.Enums;
 using CargoFlow.Dtos;
 using CargoFlow.Endpoints.Filters;
 using CargoFlow.Extensions;
@@ -13,14 +12,15 @@ public static class NotificationEndpoints
     public static RouteGroupBuilder MapNotificationsEndpoints(this RouteGroupBuilder group)
     {
         group.MapGet("/", GetNotifications)
-            .AddEndpointFilter<NotificationValidationFilter>();
+            .AddEndpointFilter<GetNotificationValidationFilter>();
+        group.MapGet("/unread-count", GetUnreadNotificationCount);
+        group.MapPatch("/{id:int}/read", MarkNotificationAsRead);
+        group.MapPatch("/read-all", MarkAllNotificationsAsRead);
         return group;
     }
 
     private static async Task<Ok<List<NotificationDto>>> GetNotifications(CargoFlowDbContext db, [AsParameters] GetNotificationRequestDto dto)
     {
-        Console.WriteLine($"dtoooooooooooooooooooooooooooooooooooooooo: {dto}");
-
         var query = dto.ToQuery();
         var (recipientType,
             recipientId,
@@ -73,5 +73,59 @@ public static class NotificationEndpoints
         .ToListAsync();
 
         return TypedResults.Ok(result);
+    }
+
+    private static async Task<Ok<int>> GetUnreadNotificationCount(CargoFlowDbContext db, [AsParameters] MarkNotificationAsReadRequestDto dto)
+    {
+        var query = dto.ToQuery();
+        var (recipientId, recipientType) = query;
+        return TypedResults.Ok(await db.Notifications
+            .AsNoTracking()
+            .Where(n => n.ReadAt == null && n.RecipientId == query.RecipientId && n.RecipientType == query.RecipientType)
+            .CountAsync());
+    }
+
+    private static async Task<Results<NoContent, ProblemHttpResult>> MarkNotificationAsRead(int id, CargoFlowDbContext db, [AsParameters] MarkNotificationAsReadRequestDto dto)
+    {
+        var query = dto.ToQuery();
+        var (recipientId, recipientType) = query;
+
+        var notification = await db.Notifications.FirstOrDefaultAsync(n => n.Id == id);
+        if (notification is null)
+        {
+            return TypedResults.Problem(
+                statusCode: StatusCodes.Status404NotFound,
+                title: "Notification Not Found",
+                detail: $"Notification #{id} does not exist"
+            );
+        }
+        if (notification.RecipientId != recipientId || notification.RecipientType != recipientType)
+        {
+            return TypedResults.Problem(
+                statusCode: StatusCodes.Status409Conflict,
+                title: "Notification Recipient Conflict",
+                detail: $"{recipientType} #{recipientId} can not mark notification #{id} as read"
+            );
+        }
+        if (notification.ReadAt is not null)
+        {
+            return TypedResults.NoContent();
+        }
+        notification.ReadAt = DateTime.UtcNow;
+        await db.SaveChangesAsync();
+        return TypedResults.NoContent();
+    }
+
+    private static async Task<NoContent> MarkAllNotificationsAsRead(CargoFlowDbContext db, [AsParameters] MarkNotificationAsReadRequestDto dto)
+    {
+        var query = dto.ToQuery();
+        var (recipientId, recipientType) = query;
+
+        var now = DateTime.UtcNow;
+        await db.Notifications
+           .Where(n => n.ReadAt == null && n.RecipientId == recipientId && n.RecipientType == recipientType)
+           .ExecuteUpdateAsync(builder => builder
+               .SetProperty(n => n.ReadAt, now));
+        return TypedResults.NoContent();
     }
 }
