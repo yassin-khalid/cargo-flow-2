@@ -125,6 +125,20 @@ public static class OfferEndpoints
             db.ShipmentStatusHistories.Add(shipmentStatusHistory);
         }
 
+        var notification = new Notification()
+        {
+            Title = "Offer Submittd",
+            Message = $"New offer has been submitted successfully for shipment #{shipmentId}",
+            ShipmentId = shipmentId,
+            Type = NotificationType.OfferSubmitted,
+            RecipientType = RecipientType.Customer,
+            RecipientId = shipment.CustomerId,
+            CreatedAt = now,
+            ReadAt = null,
+        };
+
+        db.Notifications.Add(notification);
+
         try
         {
             await db.SaveChangesAsync();
@@ -268,6 +282,20 @@ public static class OfferEndpoints
         };
 
         db.ShipmentStatusHistories.Add(shipmentStatusHistory);
+
+        var notification = new Notification()
+        {
+            Title = "Offer Awarded",
+            Message = $"Offer #{offerId} for shipment {shipmentId} has been awarded",
+            RecipientId = offer.CompanyId,
+            RecipientType = RecipientType.Company,
+            ShipmentId = shipmentId,
+            Type = NotificationType.OfferAwarded,
+            CreatedAt = DateTime.UtcNow,
+            ReadAt = null
+        };
+
+        db.Notifications.Add(notification);
 
         try
         {
