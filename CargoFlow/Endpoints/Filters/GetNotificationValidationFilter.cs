@@ -20,8 +20,8 @@ public class GetNotificationValidationFilter : IEndpointFilter
         CommonValidationFilter.ValidateIntFilter(query, recipientIdKey, errors);
         CommonValidationFilter.ValidateIntFilter(query, shipmentIdKey, errors);
 
-        CommonValidationFilter.ValidateEnumFilter<NotificationType>(query, notificationTypeKey, errors);
-        CommonValidationFilter.ValidateEnumFilter<RecipientType>(query, recipientTypeKey, errors);
+        CommonValidationFilter.ValidateEnumFilter<NotificationType>(query, notificationTypeKey, errors, ValidationType.Required);
+        CommonValidationFilter.ValidateEnumFilter<RecipientType>(query, recipientTypeKey, errors, ValidationType.Required);
 
         CommonValidationFilter.ValidateBoolFilter(query, isReadKey, errors);
 

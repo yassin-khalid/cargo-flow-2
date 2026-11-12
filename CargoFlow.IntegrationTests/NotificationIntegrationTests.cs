@@ -1,16 +1,19 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using CargoFlow.Data;
 using CargoFlow.Domain.Enums;
 using CargoFlow.Dtos;
+using CargoFlow.Helpers;
 using CargoFlow.IntegrationTests.Helpers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Xunit.Abstractions;
 
 namespace CargoFlow.IntegrationTests;
 
 [Collection("Database collection")]
-public class NotificationIntegrationTests(LocalSqlWebApplicationFactory<Program> factory)
+public class NotificationIntegrationTests(LocalSqlWebApplicationFactory<Program> factory, ITestOutputHelper testOutputHelper)
 {
     private readonly HttpClient _client = factory.CreateClient();
 
@@ -24,21 +27,24 @@ public class NotificationIntegrationTests(LocalSqlWebApplicationFactory<Program>
             new("Test Company", 100, OfferStateName.Submitted)
         ]);
 
-        var response = await _client.PostAsJsonAsync($"/api/shipments/{shipment.Id}/offers/{offers[0].Id}/award", new { });
+        var offerId = offers[0].Id;
+        var response = await _client.PostAsJsonAsync($"/api/shipments/{shipment.Id}/offers/{offerId}/award", new { });
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
 
         using var verifyScope = factory.Services.CreateScope();
         var verifyDb = verifyScope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
 
         var notification = await verifyDb.Notifications
-            .Where(n => n.RecipientId == offers[0].CompanyId
+            .FirstOrDefaultAsync(n => n.RecipientId == offers[0].CompanyId
                 && n.Type == NotificationType.OfferAwarded
                 && n.RecipientType == RecipientType.Company
                 && n.ShipmentId == shipment.Id
-            )
-            .ToListAsync();
+            );
 
-        Assert.NotEmpty(notification);
+        Assert.NotNull(notification);
+        Assert.Equal("Offer Awarded", notification.Title);
+        Assert.Equal($"Offer #{offerId} for shipment {shipment.Id} has been awarded", notification.Message);
+        Assert.Null(notification.ReadAt);
     }
 
     [Fact]
@@ -66,14 +72,222 @@ public class NotificationIntegrationTests(LocalSqlWebApplicationFactory<Program>
         var verifyDb = verifyScope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
 
         var notification = await verifyDb.Notifications
-            .Where(n => n.ShipmentId == shipment.Id
+            .FirstOrDefaultAsync(n => n.ShipmentId == shipment.Id
                 && n.RecipientId == shipment.CustomerId
                 && n.RecipientType == RecipientType.Customer
                 && n.Type == NotificationType.OfferSubmitted
-            )
-            .ToListAsync();
+            );
 
-        Assert.NotEmpty(notification);
+        Assert.NotNull(notification);
+        Assert.Equal("Offer Submittd", notification.Title);
+        Assert.Equal($"New offer has been submitted successfully for shipment #{shipment.Id}", notification.Message);
+        Assert.Null(notification.ReadAt);
 
     }
+
+    [Fact]
+    public async Task OpenForOffers_WhenSuccess_ShouldCreateCustomerNotification()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+
+        var shipmentWithStatus = await ShipmentSeeder.SeedShipmentListWithUniqueStatusAsync(db, [
+            new(ShipmentStatusName.Draft, "Ton (t)", 100)
+        ]);
+        var shipment = shipmentWithStatus.Values.First();
+
+        var response = await _client.PostAsJsonAsync($"/api/shipments/{shipment.Id}/open-for-offers", new { });
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+
+        using var verifyScope = factory.Services.CreateScope();
+        var verifyDb = verifyScope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+
+        var notification = await verifyDb.Notifications
+        .FirstOrDefaultAsync(n => n.RecipientId == shipment.CustomerId
+            && n.RecipientType == RecipientType.Customer
+            && n.Type == NotificationType.ShipmentStatusChanged
+            && n.ShipmentId == shipment.Id);
+
+        Assert.NotNull(notification);
+        Assert.Equal("Shipment Status Changed", notification.Title);
+        Assert.Equal($"Shipment #{shipment.Id} status has been changed to {ShipmentStatusName.OpenForOffers}", notification.Message);
+        Assert.Null(notification.ReadAt);
+
+    }
+
+    [Fact]
+    public async Task CancelShipment_WhenSuccess_ShouldCreateCustomerNotification()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+
+        var shipmentWithStatus = await ShipmentSeeder.SeedShipmentListWithUniqueStatusAsync(db, [
+            new(ShipmentStatusName.Draft, "Ton (t)", 100)
+        ]);
+        var shipment = shipmentWithStatus.Values.First();
+
+        var response = await _client.PostAsJsonAsync($"/api/shipments/{shipment.Id}/cancel", new { });
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+
+        using var verifyScope = factory.Services.CreateScope();
+        var verifyDb = verifyScope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+
+        var notification = await verifyDb.Notifications
+        .FirstOrDefaultAsync(n => n.RecipientId == shipment.CustomerId
+            && n.RecipientType == RecipientType.Customer
+            && n.Type == NotificationType.ShipmentStatusChanged
+            && n.ShipmentId == shipment.Id);
+
+        Assert.NotNull(notification);
+        Assert.Equal("Shipment Status Changed", notification.Title);
+        Assert.Equal($"Shipment #{shipment.Id} status has been changed to {ShipmentStatusName.Cancelled}", notification.Message);
+        Assert.Null(notification.ReadAt);
+    }
+
+    [Fact]
+    public async Task StartShipment_WhenSuccess_ShouldCreateCustomerNotification()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+
+        var shipmentWithStatus = await ShipmentSeeder.SeedShipmentListWithUniqueStatusAsync(db, [
+            new(ShipmentStatusName.Awarded, "Ton (t)", 100)
+        ]);
+        var shipment = shipmentWithStatus.Values.First();
+
+        var response = await _client.PostAsJsonAsync($"/api/shipments/{shipment.Id}/start", new { });
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+
+        using var verifyScope = factory.Services.CreateScope();
+        var verifyDb = verifyScope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+
+        var notification = await verifyDb.Notifications
+        .FirstOrDefaultAsync(n => n.RecipientId == shipment.CustomerId
+            && n.RecipientType == RecipientType.Customer
+            && n.Type == NotificationType.ShipmentStatusChanged
+            && n.ShipmentId == shipment.Id);
+
+        Assert.NotNull(notification);
+        Assert.Equal("Shipment Status Changed", notification.Title);
+        Assert.Equal($"Shipment #{shipment.Id} status has been changed to {ShipmentStatusName.InTransit}", notification.Message);
+        Assert.Null(notification.ReadAt);
+    }
+
+    [Fact]
+    public async Task DeliverShipment_WhenSuccess_ShouldCreateCustomerNotification()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+
+        var shipmentWithStatus = await ShipmentSeeder.SeedShipmentListWithUniqueStatusAsync(db, [
+            new(ShipmentStatusName.InTransit, "Ton (t)", 100)
+        ]);
+        var shipment = shipmentWithStatus.Values.First();
+
+        var response = await _client.PostAsJsonAsync($"/api/shipments/{shipment.Id}/deliver", new { });
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+
+        using var verifyScope = factory.Services.CreateScope();
+        var verifyDb = verifyScope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+
+        var notification = await verifyDb.Notifications
+        .FirstOrDefaultAsync(n => n.RecipientId == shipment.CustomerId
+            && n.RecipientType == RecipientType.Customer
+            && n.Type == NotificationType.ShipmentStatusChanged
+            && n.ShipmentId == shipment.Id);
+
+        Assert.NotNull(notification);
+        Assert.Equal("Shipment Status Changed", notification.Title);
+        Assert.Equal($"Shipment #{shipment.Id} status has been changed to {ShipmentStatusName.Delivered}", notification.Message);
+        Assert.Null(notification.ReadAt);
+    }
+
+    [Fact]
+    public async Task TransitionShipmentStatus_WhenSuccess_ShouldCreateCustomerNotification()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+        var referenceData = scope.ServiceProvider.GetRequiredService<IReferenceData>();
+
+        var draftShipment = await ShipmentSeeder.SeedShipmentListWithUniqueStatusAsync(db, [
+            new(ShipmentStatusName.Draft, "Ton (t)", 100)
+        ]);
+
+        var openForOfferStatusId = referenceData.GetShipmentStatusId(ShipmentStatusName.OpenForOffers);
+
+        var shipment = draftShipment.Values.First();
+        var response = await _client.PatchAsJsonAsync($"/api/shipments/{shipment.Id}/status", new ShipmentStatusTransitionRequest(openForOfferStatusId));
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+
+        using var verifyScope = factory.Services.CreateScope();
+        var verifyDb = verifyScope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+
+        var notification = await verifyDb.Notifications
+            .FirstOrDefaultAsync(n => n.RecipientId == shipment.CustomerId
+                && n.ShipmentId == shipment.Id
+                && n.RecipientType == RecipientType.Customer
+                && n.Type == NotificationType.ShipmentStatusChanged
+        );
+
+        Assert.NotNull(notification);
+        Assert.Equal("Shipment Status Changed", notification.Title);
+        Assert.Equal($"Shipment #{shipment.Id} status has been changed to {ShipmentStatusName.OpenForOffers}", notification.Message);
+        Assert.Null(notification.ReadAt);
+    }
+
+    [Fact]
+    public async Task MarkNotificaitonAsRead_WhenSuccess_ShouldMakeReadAtNonNullable()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+
+        var notifications = await NotificationSeeder.SeedNotifications(db, 10);
+        var notification = notifications.First();
+
+        Assert.Null(notification.ReadAt);
+        var response = await _client.PatchAsJsonAsync($"/api/notifications/{notification.Id}/read?recipient_id={notification.RecipientId}&recipient_type={JsonNamingPolicy.SnakeCaseLower.ConvertName(notification.RecipientType.ToString())}", new { });
+
+        testOutputHelper.WriteLine(await response.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+
+        using var verifyScope = factory.Services.CreateScope();
+        var verifyDb = verifyScope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+
+        var verifyNotification = await verifyDb.Notifications
+            .FirstOrDefaultAsync(n => n.Id == notification.Id);
+
+        Assert.NotNull(verifyNotification);
+        Assert.NotNull(verifyNotification.ReadAt);
+    }
+
+    [Fact]
+    public async Task MarkNotificationsAsRead_WhenSuccess_ShouldMakeReadAtNonNullable()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+
+        var notifications = await NotificationSeeder.SeedNotificationsWithSharedRecipient(db, 10);
+        var notification = notifications.First();
+        var notificationIds = notifications.Select(n => n.Id);
+
+        Assert.All(notifications, n => Assert.Null(n.ReadAt));
+        var response = await _client.PatchAsJsonAsync($"/api/notifications/read-all?recipient_id={notification.RecipientId}&recipient_type={JsonNamingPolicy.SnakeCaseLower.ConvertName(notification.RecipientType.ToString())}", new { });
+
+        testOutputHelper.WriteLine(await response.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+
+        using var verifyScope = factory.Services.CreateScope();
+        var verifyDb = verifyScope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+
+        var verifyNotifications = await verifyDb.Notifications
+            .Where(n => notificationIds.Contains(n.Id))
+            .ToListAsync();
+
+        Assert.All(verifyNotifications, n => Assert.NotNull(n.ReadAt));
+    }
+
+
 }

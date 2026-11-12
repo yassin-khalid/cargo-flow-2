@@ -120,7 +120,7 @@ public static class ShipmentSeeder
     {
         if (shipmentSpecs is { Length: 0 })
         {
-            return new Dictionary<ShipmentStatusName, Shipment>();
+            return [];
         }
 
         var duplicateStatuses = shipmentSpecs

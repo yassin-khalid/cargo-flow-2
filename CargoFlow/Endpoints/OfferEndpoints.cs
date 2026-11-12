@@ -123,6 +123,19 @@ public static class OfferEndpoints
                 DateTime = DateTime.UtcNow
             };
             db.ShipmentStatusHistories.Add(shipmentStatusHistory);
+
+            var statusChangedNotification = new Notification()
+            {
+                Title = "Shipment Status Changed",
+                Message = $"Shipment #{shipmentId} status has been changed to {ShipmentStatusName.OffersReceived}",
+                ShipmentId = shipmentId,
+                Type = NotificationType.ShipmentStatusChanged,
+                RecipientType = RecipientType.Customer,
+                RecipientId = shipment.CustomerId,
+                CreatedAt = now,
+                ReadAt = null,
+            };
+            db.Notifications.Add(statusChangedNotification);
         }
 
         var notification = new Notification()
@@ -282,6 +295,19 @@ public static class OfferEndpoints
         };
 
         db.ShipmentStatusHistories.Add(shipmentStatusHistory);
+
+        var statusChangedNotification = new Notification()
+        {
+            Title = "Shipment Status Changed",
+            Message = $"Shipment #{shipmentId} status has been changed to {ShipmentStatusName.Awarded}",
+            Type = NotificationType.ShipmentStatusChanged,
+            RecipientId = shipment.CustomerId,
+            RecipientType = RecipientType.Customer,
+            ShipmentId = shipmentId,
+            CreatedAt = DateTime.UtcNow,
+            ReadAt = null
+        };
+        db.Notifications.Add(statusChangedNotification);
 
         var notification = new Notification()
         {

@@ -1,5 +1,3 @@
-using System.Net;
-using System.Text.Json;
 using CargoFlow.Data;
 using CargoFlow.Domain;
 using CargoFlow.Domain.Enums;
@@ -33,11 +31,11 @@ public static class ShipmentEndpoints
     private static async Task<Ok<PaginatedShipmentsDto>> GetPaginatedShipments(CargoFlowDbContext db, [AsParameters] GetPaginatedShipmentsRequestDto dto)
     {
         var query = dto.ToQuery();
-        var (customerId, 
-            shipmentStatus, 
-            pickupAddress, 
-            destinationAddress, 
-            page, 
+        var (customerId,
+            shipmentStatus,
+            pickupAddress,
+            destinationAddress,
+            page,
             pageSize,
             sortBy,
             sortOrder) = query;
@@ -62,7 +60,7 @@ public static class ShipmentEndpoints
         {
             shipments = shipments.Where(s => s.DestinationId == destinationAddress);
         }
-        
+
         // I have no 'CreatedAt' in my entity, I'll use 'Id' instead
         if (sortOrder == ShipmentSortDirection.Desc)
         {
@@ -74,29 +72,29 @@ public static class ShipmentEndpoints
         }
         else
         {
-            
+
             shipments = sortBy switch
             {
                 ShipmentSortBy.Id => shipments.OrderBy(s => s.Id),
                 _ => shipments.OrderBy(s => s.Weight).ThenBy(s => s.Id)
             };
         }
-        
-        
+
+
         var totalCount = await shipments.CountAsync();
         var skip = (long)(page - 1) * pageSize;
         shipments = shipments.Skip((int)skip).Take(pageSize);
 
         var items = await shipments
-            .Select(s => new ShipmentDto(s.Id, 
-                s.CustomerId, 
-                s.PickupId, 
-                s.DestinationId, 
-                s.Weight, 
-                s.WeightTypeId, 
+            .Select(s => new ShipmentDto(s.Id,
+                s.CustomerId,
+                s.PickupId,
+                s.DestinationId,
+                s.Weight,
+                s.WeightTypeId,
                 s.ShipmentStatusId))
             .ToListAsync();
-        
+
         return TypedResults.Ok(new PaginatedShipmentsDto(items, page, pageSize, totalCount));
 
     }
@@ -153,7 +151,7 @@ public static class ShipmentEndpoints
                 new ShipmentStatusHistory()
                 {
                     ShipmentStatusId = draftShipmentId,
-                    DateTime = DateTime.UtcNow                   
+                    DateTime = DateTime.UtcNow
                 }
             ]
         };
@@ -199,15 +197,15 @@ public static class ShipmentEndpoints
 
         var openForOffersStatusId = referenceData.GetShipmentStatusId(ShipmentStatusName.OpenForOffers);
         var draftStatusId = referenceData.GetShipmentStatusId(ShipmentStatusName.Draft);
-        
+
         if (shipment.ShipmentStatusId == openForOffersStatusId)
         {
             return TypedResults.Problem(
                 statusCode: StatusCodes.Status409Conflict,
                 title: "Shipment Status Conflict",
-                detail: $"Shipment #{id} is already opened for offers");           
+                detail: $"Shipment #{id} is already opened for offers");
         }
-        
+
         if (shipment.ShipmentStatusId != draftStatusId)
         {
             return TypedResults.Problem(
@@ -215,7 +213,7 @@ public static class ShipmentEndpoints
                 title: "Shipment Status Conflict",
                 detail: $"Shipment #{id} is not Draft, only draft shipments can be opened for offers");
         }
-        
+
         shipment.ShipmentStatusId = openForOffersStatusId;
 
         var shipmentStatusHistory = new ShipmentStatusHistory()
@@ -224,8 +222,22 @@ public static class ShipmentEndpoints
             ShipmentStatusId = openForOffersStatusId,
             DateTime = DateTime.UtcNow
         };
-        
+
         db.ShipmentStatusHistories.Add(shipmentStatusHistory);
+
+        var notification = new Notification()
+        {
+            Title = "Shipment Status Changed",
+            Message = $"Shipment #{id} status has been changed to {ShipmentStatusName.OpenForOffers}",
+            RecipientId = shipment.CustomerId,
+            RecipientType = RecipientType.Customer,
+            ShipmentId = id,
+            Type = NotificationType.ShipmentStatusChanged,
+            CreatedAt = DateTime.UtcNow,
+            ReadAt = null
+        };
+
+        db.Notifications.Add(notification);
 
         try
         {
@@ -255,7 +267,7 @@ public static class ShipmentEndpoints
         }
 
         var cancelledStatusId = referenceData.GetShipmentStatusId(ShipmentStatusName.Cancelled);
-        
+
         if (shipment.ShipmentStatusId == cancelledStatusId)
         {
             return TypedResults.Problem(
@@ -263,12 +275,12 @@ public static class ShipmentEndpoints
                 title: "Shipment Status Conflict",
                 detail: $"Shipment #{id} already cancelled");
         }
-        
+
         var openStatusId = referenceData.GetShipmentStatusId(ShipmentStatusName.OpenForOffers);
         var draftStatusId = referenceData.GetShipmentStatusId(ShipmentStatusName.Draft);
         var receivedStatusId = referenceData.GetShipmentStatusId(ShipmentStatusName.OffersReceived);
 
-        if (!new HashSet<int>{openStatusId, draftStatusId, receivedStatusId}.Contains(shipment.ShipmentStatusId))
+        if (!new HashSet<int> { openStatusId, draftStatusId, receivedStatusId }.Contains(shipment.ShipmentStatusId))
         {
             return TypedResults.Problem(
                 statusCode: StatusCodes.Status409Conflict,
@@ -277,6 +289,19 @@ public static class ShipmentEndpoints
         }
 
         shipment.ShipmentStatusId = cancelledStatusId;
+
+        var notification = new Notification()
+        {
+            Title = "Shipment Status Changed",
+            Message = $"Shipment #{id} status has been changed to {ShipmentStatusName.Cancelled}",
+            ShipmentId = id,
+            RecipientId = shipment.CustomerId,
+            RecipientType = RecipientType.Customer,
+            Type = NotificationType.ShipmentStatusChanged,
+            CreatedAt = DateTime.UtcNow,
+            ReadAt = null
+        };
+        db.Notifications.Add(notification);
 
         var shipmentStatusHistory = new ShipmentStatusHistory()
         {
@@ -325,6 +350,21 @@ public static class ShipmentEndpoints
         var inTransitStatusId = referenceData.GetShipmentStatusId(ShipmentStatusName.InTransit);
 
         shipment.ShipmentStatusId = inTransitStatusId;
+
+
+        var notification = new Notification()
+        {
+            Title = "Shipment Status Changed",
+            Message = $"Shipment #{id} status has been changed to {ShipmentStatusName.InTransit}",
+            ShipmentId = id,
+            RecipientId = shipment.CustomerId,
+            RecipientType = RecipientType.Customer,
+            Type = NotificationType.ShipmentStatusChanged,
+            CreatedAt = DateTime.UtcNow,
+            ReadAt = null
+        };
+        db.Notifications.Add(notification);
+
         var shipmentStatusHistory = new ShipmentStatusHistory()
         {
             ShipmentId = shipment.Id,
@@ -332,7 +372,7 @@ public static class ShipmentEndpoints
             DateTime = DateTime.UtcNow
         };
         db.ShipmentStatusHistories.Add(shipmentStatusHistory);
-        
+
         try
         {
             await db.SaveChangesAsync();
@@ -348,8 +388,8 @@ public static class ShipmentEndpoints
     }
 
     public static async Task<Results<NoContent, ProblemHttpResult>> DeliverShipment(
-        int id, 
-        CargoFlowDbContext db, 
+        int id,
+        CargoFlowDbContext db,
         IReferenceData referenceData)
     {
         var shipment = await db.Shipments.FirstOrDefaultAsync(s => s.Id == id);
@@ -374,6 +414,19 @@ public static class ShipmentEndpoints
 
         shipment.ShipmentStatusId = deliveredStatusId;
 
+        var notification = new Notification()
+        {
+            Title = "Shipment Status Changed",
+            Message = $"Shipment #{id} status has been changed to {ShipmentStatusName.Delivered}",
+            ShipmentId = id,
+            RecipientId = shipment.CustomerId,
+            RecipientType = RecipientType.Customer,
+            Type = NotificationType.ShipmentStatusChanged,
+            CreatedAt = DateTime.UtcNow,
+            ReadAt = null
+        };
+        db.Notifications.Add(notification);
+
         var shipmentStatusHistory = new ShipmentStatusHistory()
         {
             ShipmentId = shipment.Id,
@@ -382,7 +435,7 @@ public static class ShipmentEndpoints
         };
 
         db.ShipmentStatusHistories.Add(shipmentStatusHistory);
-        
+
         try
         {
             await db.SaveChangesAsync();
@@ -403,7 +456,7 @@ public static class ShipmentEndpoints
         var shipment = await db.Shipments
             .Include(s => s.ShipmentStatus)
             .FirstOrDefaultAsync(s => s.Id == id);
-        
+
         if (shipment is null)
         {
             return TypedResults.Problem(
@@ -422,14 +475,14 @@ public static class ShipmentEndpoints
         }
 
         var allowedTransitions = ShipmentStatusTransitions.GetAllowedTransitions(shipment.ShipmentStatus.Name);
-        if (allowedTransitions is {Count: 0})
+        if (allowedTransitions is { Count: 0 })
         {
             return TypedResults.Problem(
                 statusCode: StatusCodes.Status400BadRequest,
                 title: "Invalid Transition Request",
                 detail: $"Shipment #{id} has a '{shipment.ShipmentStatus.Name}' status and cannot be transitioned");
         }
-        
+
         var isTransitionAllowed = allowedTransitions.Contains(targetStatus.Name);
 
         if (!isTransitionAllowed)
@@ -442,6 +495,19 @@ public static class ShipmentEndpoints
         }
 
         shipment.ShipmentStatusId = targetStatus.Id;
+
+        var notification = new Notification()
+        {
+            Title = "Shipment Status Changed",
+            Message = $"Shipment #{id} status has been changed to {targetStatus.Name}",
+            ShipmentId = id,
+            RecipientId = shipment.CustomerId,
+            RecipientType = RecipientType.Customer,
+            Type = NotificationType.ShipmentStatusChanged,
+            CreatedAt = DateTime.UtcNow,
+            ReadAt = null
+        };
+        db.Notifications.Add(notification);
 
         var shipmentStatusHistory = new ShipmentStatusHistory()
         {
@@ -482,7 +548,7 @@ public static class ShipmentEndpoints
         var shipmentStatusHistories = await db.ShipmentStatusHistories
             .AsNoTracking()
             .Where(ssh => ssh.ShipmentId == id)
-            .Select(ssh => new {ssh.Id, Status = ssh.ShipmentStatus.Name.ToString(), ssh.DateTime})
+            .Select(ssh => new { ssh.Id, Status = ssh.ShipmentStatus.Name.ToString(), ssh.DateTime })
             .OrderBy(ssh => ssh.DateTime)
             .ThenBy(ssh => ssh.Id)
             .ToListAsync();
