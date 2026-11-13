@@ -2,6 +2,7 @@ using System.Text.Json;
 using CargoFlow.Data;
 using CargoFlow.Endpoints;
 using CargoFlow.Helpers;
+using CargoFlow.Services;
 using CargoFlow.Workers;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.EntityFrameworkCore;
@@ -14,6 +15,7 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 builder.Services.AddSingleton<IReferenceData, ReferenceData>();
 builder.Services.AddScoped<IOfferExpirationService, OfferExpirationService>();
 builder.Services.AddHostedService<OfferExpirationWorker>();
+builder.Services.AddSingleton<INotificationService, NotificationService>();
 builder.Services.AddValidation();
 
 if (builder.Environment.IsDevelopment())

@@ -5,6 +5,7 @@ using CargoFlow.Dtos;
 using CargoFlow.Endpoints.Filters;
 using CargoFlow.Extensions;
 using CargoFlow.Helpers;
+using CargoFlow.Services;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 
@@ -184,7 +185,10 @@ public static class ShipmentEndpoints
 
 
     private static async Task<Results<NoContent, ProblemHttpResult>> OpenForOffers(int id,
-        CargoFlowDbContext db, IReferenceData referenceData)
+        CargoFlowDbContext db,
+        IReferenceData referenceData,
+        INotificationService notificationService
+    )
     {
         var shipment = await db.Shipments.FirstOrDefaultAsync(s => s.Id == id);
         if (shipment is null)
@@ -225,18 +229,7 @@ public static class ShipmentEndpoints
 
         db.ShipmentStatusHistories.Add(shipmentStatusHistory);
 
-        var notification = new Notification()
-        {
-            Title = "Shipment Status Changed",
-            Message = $"Shipment #{id} status has been changed to {ShipmentStatusName.OpenForOffers}",
-            RecipientId = shipment.CustomerId,
-            RecipientType = RecipientType.Customer,
-            ShipmentId = id,
-            Type = NotificationType.ShipmentStatusChanged,
-            CreatedAt = DateTime.UtcNow,
-            ReadAt = null
-        };
-
+        var notification = notificationService.CreateShipmentStatusChangedNotification(shipment, ShipmentStatusName.OpenForOffers);
         db.Notifications.Add(notification);
 
         try
@@ -255,7 +248,12 @@ public static class ShipmentEndpoints
 
     }
 
-    private static async Task<Results<NoContent, ProblemHttpResult>> CancelShipment(int id, CargoFlowDbContext db, IReferenceData referenceData)
+    private static async Task<Results<NoContent, ProblemHttpResult>> CancelShipment(
+        int id,
+        CargoFlowDbContext db,
+        IReferenceData referenceData,
+        INotificationService notificationService
+    )
     {
         var shipment = await db.Shipments.FirstOrDefaultAsync(s => s.Id == id);
         if (shipment is null)
@@ -290,17 +288,7 @@ public static class ShipmentEndpoints
 
         shipment.ShipmentStatusId = cancelledStatusId;
 
-        var notification = new Notification()
-        {
-            Title = "Shipment Status Changed",
-            Message = $"Shipment #{id} status has been changed to {ShipmentStatusName.Cancelled}",
-            ShipmentId = id,
-            RecipientId = shipment.CustomerId,
-            RecipientType = RecipientType.Customer,
-            Type = NotificationType.ShipmentStatusChanged,
-            CreatedAt = DateTime.UtcNow,
-            ReadAt = null
-        };
+        var notification = notificationService.CreateShipmentStatusChangedNotification(shipment, ShipmentStatusName.Cancelled);
         db.Notifications.Add(notification);
 
         var shipmentStatusHistory = new ShipmentStatusHistory()
@@ -326,7 +314,12 @@ public static class ShipmentEndpoints
 
     }
 
-    public static async Task<Results<NoContent, ProblemHttpResult>> StartShipment(int id, CargoFlowDbContext db, IReferenceData referenceData)
+    public static async Task<Results<NoContent, ProblemHttpResult>> StartShipment(
+        int id,
+        CargoFlowDbContext db,
+        IReferenceData referenceData,
+        INotificationService notificationService
+    )
     {
         var shipment = await db.Shipments.FirstOrDefaultAsync(s => s.Id == id);
         if (shipment is null)
@@ -351,18 +344,7 @@ public static class ShipmentEndpoints
 
         shipment.ShipmentStatusId = inTransitStatusId;
 
-
-        var notification = new Notification()
-        {
-            Title = "Shipment Status Changed",
-            Message = $"Shipment #{id} status has been changed to {ShipmentStatusName.InTransit}",
-            ShipmentId = id,
-            RecipientId = shipment.CustomerId,
-            RecipientType = RecipientType.Customer,
-            Type = NotificationType.ShipmentStatusChanged,
-            CreatedAt = DateTime.UtcNow,
-            ReadAt = null
-        };
+        var notification = notificationService.CreateShipmentStatusChangedNotification(shipment, ShipmentStatusName.InTransit);
         db.Notifications.Add(notification);
 
         var shipmentStatusHistory = new ShipmentStatusHistory()
@@ -390,7 +372,9 @@ public static class ShipmentEndpoints
     public static async Task<Results<NoContent, ProblemHttpResult>> DeliverShipment(
         int id,
         CargoFlowDbContext db,
-        IReferenceData referenceData)
+        IReferenceData referenceData,
+        INotificationService notificationService
+    )
     {
         var shipment = await db.Shipments.FirstOrDefaultAsync(s => s.Id == id);
         if (shipment is null)
@@ -414,17 +398,7 @@ public static class ShipmentEndpoints
 
         shipment.ShipmentStatusId = deliveredStatusId;
 
-        var notification = new Notification()
-        {
-            Title = "Shipment Status Changed",
-            Message = $"Shipment #{id} status has been changed to {ShipmentStatusName.Delivered}",
-            ShipmentId = id,
-            RecipientId = shipment.CustomerId,
-            RecipientType = RecipientType.Customer,
-            Type = NotificationType.ShipmentStatusChanged,
-            CreatedAt = DateTime.UtcNow,
-            ReadAt = null
-        };
+        var notification = notificationService.CreateShipmentStatusChangedNotification(shipment, ShipmentStatusName.Delivered);
         db.Notifications.Add(notification);
 
         var shipmentStatusHistory = new ShipmentStatusHistory()
@@ -450,8 +424,12 @@ public static class ShipmentEndpoints
         }
     }
 
-    public static async Task<Results<NoContent, ProblemHttpResult>> TransitionShipmentStatus(int id,
-        CargoFlowDbContext db, ShipmentStatusTransitionRequest body)
+    public static async Task<Results<NoContent, ProblemHttpResult>> TransitionShipmentStatus(
+        int id,
+        CargoFlowDbContext db,
+        ShipmentStatusTransitionRequest body,
+        INotificationService notificationService
+    )
     {
         var shipment = await db.Shipments
             .Include(s => s.ShipmentStatus)
@@ -496,17 +474,7 @@ public static class ShipmentEndpoints
 
         shipment.ShipmentStatusId = targetStatus.Id;
 
-        var notification = new Notification()
-        {
-            Title = "Shipment Status Changed",
-            Message = $"Shipment #{id} status has been changed to {targetStatus.Name}",
-            ShipmentId = id,
-            RecipientId = shipment.CustomerId,
-            RecipientType = RecipientType.Customer,
-            Type = NotificationType.ShipmentStatusChanged,
-            CreatedAt = DateTime.UtcNow,
-            ReadAt = null
-        };
+        var notification = notificationService.CreateShipmentStatusChangedNotification(shipment, targetStatus.Name);
         db.Notifications.Add(notification);
 
         var shipmentStatusHistory = new ShipmentStatusHistory()

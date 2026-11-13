@@ -3,6 +3,7 @@ using CargoFlow.Domain;
 using CargoFlow.Domain.Enums;
 using CargoFlow.Dtos;
 using CargoFlow.Helpers;
+using CargoFlow.Services;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -61,7 +62,9 @@ public static class OfferEndpoints
        int shipmentId,
        SubmitOfferRequestBody body,
        CargoFlowDbContext db,
-       IReferenceData referenceData)
+       IReferenceData referenceData,
+       INotificationService notificationService
+    )
     {
         var shipment = await db.Shipments.FirstOrDefaultAsync(s => s.Id == shipmentId);
         if (shipment is null)
@@ -124,32 +127,11 @@ public static class OfferEndpoints
             };
             db.ShipmentStatusHistories.Add(shipmentStatusHistory);
 
-            var statusChangedNotification = new Notification()
-            {
-                Title = "Shipment Status Changed",
-                Message = $"Shipment #{shipmentId} status has been changed to {ShipmentStatusName.OffersReceived}",
-                ShipmentId = shipmentId,
-                Type = NotificationType.ShipmentStatusChanged,
-                RecipientType = RecipientType.Customer,
-                RecipientId = shipment.CustomerId,
-                CreatedAt = now,
-                ReadAt = null,
-            };
+            var statusChangedNotification = notificationService.CreateShipmentStatusChangedNotification(shipment, ShipmentStatusName.OffersReceived);
             db.Notifications.Add(statusChangedNotification);
         }
 
-        var notification = new Notification()
-        {
-            Title = "Offer Submittd",
-            Message = $"New offer has been submitted successfully for shipment #{shipmentId}",
-            ShipmentId = shipmentId,
-            Type = NotificationType.OfferSubmitted,
-            RecipientType = RecipientType.Customer,
-            RecipientId = shipment.CustomerId,
-            CreatedAt = now,
-            ReadAt = null,
-        };
-
+        var notification = notificationService.CreateOfferSubmittedNotification(shipment);
         db.Notifications.Add(notification);
 
         try
@@ -206,7 +188,13 @@ public static class OfferEndpoints
             });
     }
 
-    private static async Task<Results<NoContent, ProblemHttpResult>> AwardOffer(int shipmentId, int offerId, CargoFlowDbContext db, IReferenceData referenceData)
+    private static async Task<Results<NoContent, ProblemHttpResult>> AwardOffer(
+        int shipmentId,
+        int offerId,
+        CargoFlowDbContext db,
+        IReferenceData referenceData,
+        INotificationService notificationService
+    )
     {
         var shipment = await db.Shipments.FirstOrDefaultAsync(s => s.Id == shipmentId);
         if (shipment is null)
@@ -296,31 +284,10 @@ public static class OfferEndpoints
 
         db.ShipmentStatusHistories.Add(shipmentStatusHistory);
 
-        var statusChangedNotification = new Notification()
-        {
-            Title = "Shipment Status Changed",
-            Message = $"Shipment #{shipmentId} status has been changed to {ShipmentStatusName.Awarded}",
-            Type = NotificationType.ShipmentStatusChanged,
-            RecipientId = shipment.CustomerId,
-            RecipientType = RecipientType.Customer,
-            ShipmentId = shipmentId,
-            CreatedAt = DateTime.UtcNow,
-            ReadAt = null
-        };
+        var statusChangedNotification = notificationService.CreateShipmentStatusChangedNotification(shipment, ShipmentStatusName.Awarded);
         db.Notifications.Add(statusChangedNotification);
 
-        var notification = new Notification()
-        {
-            Title = "Offer Awarded",
-            Message = $"Offer #{offerId} for shipment {shipmentId} has been awarded",
-            RecipientId = offer.CompanyId,
-            RecipientType = RecipientType.Company,
-            ShipmentId = shipmentId,
-            Type = NotificationType.OfferAwarded,
-            CreatedAt = DateTime.UtcNow,
-            ReadAt = null
-        };
-
+        var notification = notificationService.CreateOfferAwardedNotificaiton(shipment, offer);
         db.Notifications.Add(notification);
 
         try
