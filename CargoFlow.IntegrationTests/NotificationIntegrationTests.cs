@@ -382,4 +382,20 @@ public class NotificationIntegrationTests(LocalSqlWebApplicationFactory<Program>
         Assert.NotNull(verifyNotification);
         Assert.NotNull(verifyNotification.ReadAt);
     }
+
+    [Fact]
+    public async Task GetUnreadNotificationsCount_WhenSuccess_ShoulReturnsSumOfUnreadCount200OK()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+
+        var notifications = await NotificationSeeder.SeedNotificationsWithSharedRecipient(db, 10);
+        var recipientId = notifications[0].RecipientId;
+        var recipientTypeString = notifications[0].RecipientType.ToString().ToLower();
+
+        var response = await _client.GetAsync($"/api/notifications/unread-count?recipient_type={recipientTypeString}&recipient_id={recipientId}");
+        response.EnsureSuccessStatusCode();
+        Assert.True(int.TryParse(await response.Content.ReadAsStringAsync(), out var count));
+        Assert.Equal(notifications.Count, count);
+    }
 }
