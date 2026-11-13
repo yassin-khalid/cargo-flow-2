@@ -46,7 +46,7 @@ public static class NotificationSeeder
             {
                 NotificationReadStatus.Read => now.AddHours((i + 1) * -1),
                 NotificationReadStatus.Unread => null,
-                _ => Random.Shared.NextDouble() > 0.5 ? now.AddHours((i + 1) * -1) : null
+                _ => i % 2 == 0 ? now.AddHours((i + 1) * -1) : null
             };
             var notification = new Notification()
             {
@@ -92,7 +92,7 @@ public static class NotificationSeeder
             {
                 NotificationReadStatus.Read => now.AddHours((counter + 1) * -1),
                 NotificationReadStatus.Unread => null,
-                _ => Random.Shared.NextDouble() > 0.5 ? now.AddHours((counter + 1) * -1) : null
+                _ => counter % 2 == 0 ? now.AddHours((counter + 1) * -1) : null
             };
             var notification = new Notification()
             {
@@ -132,7 +132,7 @@ public static class NotificationSeeder
             {
                 NotificationReadStatus.Read => now.AddHours((i + 1) * -1),
                 NotificationReadStatus.Unread => null,
-                _ => Random.Shared.NextDouble() > 0.5 ? now.AddHours((i + 1) * -1) : null
+                _ => i % 2 == 0 ? now.AddHours((i + 1) * -1) : null
             };
             var notification = new Notification()
             {
