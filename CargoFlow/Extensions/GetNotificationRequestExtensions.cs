@@ -1,3 +1,4 @@
+using System.Text.Json;
 using CargoFlow.Domain.Enums;
 using CargoFlow.Dtos;
 
@@ -21,7 +22,7 @@ public static class GetNotificationRequestExtensions
     {
 
         return new GetNotificationQuery(
-         Enum.Parse<RecipientType>(dto.RecipientType, true),
+         Enum.Parse<RecipientType>(JsonNamingPolicy.CamelCase.ConvertName(dto.RecipientType), true),
             dto.RecipientId,
             dto.ShipmentId,
             ToEnum<NotificationType>(dto.NotificationType),

@@ -384,7 +384,7 @@ public class NotificationIntegrationTests(LocalSqlWebApplicationFactory<Program>
     }
 
     [Fact]
-    public async Task GetUnreadNotificationsCount_WhenSuccess_ShoulReturnsSumOfUnreadCount200OK()
+    public async Task GetUnreadNotificationsCount_WhenSuccess_ShouldReturnsSumOfUnreadCount200OK()
     {
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
@@ -397,5 +397,69 @@ public class NotificationIntegrationTests(LocalSqlWebApplicationFactory<Program>
         response.EnsureSuccessStatusCode();
         Assert.True(int.TryParse(await response.Content.ReadAsStringAsync(), out var count));
         Assert.Equal(notifications.Count, count);
+    }
+
+    [Fact]
+    public async Task GetUnreadNotificaitonCount_WhenAlreadyReadOrUnmatchedRecipient_ShouldReturnsZero()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+
+        var notifications = await NotificationSeeder.SeedNotificationsWithSharedRecipient(db, 10, NotificationReadStatus.Read);
+        Assert.NotNull(notifications);
+        Assert.Equal(10, notifications.Count);
+
+        var recipientId = notifications[0].RecipientId;
+        var recipientTypeString = notifications[0].RecipientType.ToString().ToLower();
+
+        var response = await _client.GetAsync($"/api/notifications/unread-count?recipient_type={recipientTypeString}&recipient_id={recipientId}");
+        response.EnsureSuccessStatusCode();
+
+        Assert.True(int.TryParse(await response.Content.ReadAsStringAsync(), out var count));
+        Assert.Equal(0, count);
+    }
+
+    [Fact]
+    public async Task MarkNotificationAsRead_WhenOtherRecipient_ShouldReturns404()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+
+        var notifications = await NotificationSeeder.SeedNotifications(db, 10);
+        Assert.NotNull(notifications);
+        Assert.Equal(10, notifications.Count);
+
+        var notification = notifications[0];
+        var otherNotification = notifications[1];
+
+        var response = await _client.PatchAsJsonAsync($"/api/notifications/{otherNotification.Id}/read?recipient_type={notification.RecipientType.ToString().ToLower()}&recipient_id={notification.RecipientId}", new { });
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task MarkAllNotificationsAsRead_WhenSuccess_OtherRecipientNotificationsShouldRemainsUnread()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+
+        var notifications = await NotificationSeeder.SeedNotifications(db, 10);
+        var notification = notifications.First();
+        var notificationIds = notifications[1..].Select(n => n.Id);
+
+        Assert.All(notifications, n => Assert.Null(n.ReadAt));
+        var response = await _client.PatchAsJsonAsync($"/api/notifications/read-all?recipient_id={notification.RecipientId}&recipient_type={JsonNamingPolicy.SnakeCaseLower.ConvertName(notification.RecipientType.ToString())}", new { });
+
+        testOutputHelper.WriteLine(await response.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+
+        using var verifyScope = factory.Services.CreateScope();
+        var verifyDb = verifyScope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+
+        var verifyNotifications = await verifyDb.Notifications
+            .Where(n => notificationIds.Contains(n.Id))
+            .ToListAsync();
+
+        Assert.All(verifyNotifications, n => Assert.Null(n.ReadAt));
     }
 }

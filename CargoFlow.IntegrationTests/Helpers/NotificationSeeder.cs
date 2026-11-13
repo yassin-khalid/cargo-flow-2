@@ -4,25 +4,41 @@ using CargoFlow.Domain.Enums;
 
 namespace CargoFlow.IntegrationTests.Helpers;
 
+public enum NotificationReadStatus
+{
+    Read,
+    Unread
+}
+
 public static class NotificationSeeder
 {
-    public static async Task<List<Notification>> SeedNotifications(CargoFlowDbContext db, int count, RecipientType recipientType = RecipientType.Customer)
+    public static async Task<List<Notification>> SeedNotifications(
+        CargoFlowDbContext db,
+        int count,
+        RecipientType recipientType = RecipientType.Customer,
+        NotificationReadStatus readStatus = NotificationReadStatus.Unread
+    )
     {
         return recipientType switch
         {
-            RecipientType.Company => await SeedCompanyNotificaitons(db, count),
-            _ => await SeedCustomerNotification(db, count)
+            RecipientType.Company => await SeedCompanyNotificaitons(db, count, readStatus),
+            _ => await SeedCustomerNotification(db, count, readStatus)
         };
 
     }
 
-    private static async Task<List<Notification>> SeedCompanyNotificaitons(CargoFlowDbContext db, int count)
+    private static async Task<List<Notification>> SeedCompanyNotificaitons(
+        CargoFlowDbContext db,
+        int count,
+        NotificationReadStatus readStatus
+    )
     {
         var (shipment, offers) = await ShipmentSeeder.SeedShipmentWithOffersAsync(db, ShipmentStatusName.OffersReceived, "Ton (t)", 100,
             [.. Enumerable.Range(1, count).Select(i => new OfferSpec("TestCompany", 100, OfferStateName.Submitted))]
         );
 
         List<Notification> notifications = [];
+        var now = DateTime.UtcNow;
         for (var i = 0; i < count; i++)
         {
             var notification = new Notification()
@@ -33,8 +49,8 @@ public static class NotificationSeeder
                 RecipientId = offers[i].CompanyId,
                 RecipientType = RecipientType.Company,
                 Type = NotificationType.OfferSubmitted,
-                CreatedAt = DateTime.UtcNow,
-                ReadAt = null
+                CreatedAt = now.AddDays((i + 1) * -1),
+                ReadAt = readStatus == NotificationReadStatus.Read ? now.AddHours((i + 1) * -1) : null
             };
             notifications.Add(notification);
         }
@@ -44,7 +60,11 @@ public static class NotificationSeeder
         return notifications;
     }
 
-    private static async Task<List<Notification>> SeedCustomerNotification(CargoFlowDbContext db, int count)
+    private static async Task<List<Notification>> SeedCustomerNotification(
+        CargoFlowDbContext db,
+        int count,
+        NotificationReadStatus readStatus
+    )
     {
         List<Shipment> shipments = [];
         for (var i = 0; i < count; i++)
@@ -56,8 +76,11 @@ public static class NotificationSeeder
         }
 
         List<Notification> notifications = [];
+        var counter = 0;
+        var now = DateTime.UtcNow;
         foreach (var shipment in shipments)
         {
+            counter++;
             var notification = new Notification()
             {
                 ShipmentId = shipment.Id,
@@ -66,8 +89,8 @@ public static class NotificationSeeder
                 Type = NotificationType.ShipmentStatusChanged,
                 Title = "Test Title",
                 Message = "Test Message",
-                CreatedAt = DateTime.UtcNow,
-                ReadAt = null,
+                CreatedAt = now.AddDays((counter + 1) * -1),
+                ReadAt = readStatus == NotificationReadStatus.Read ? now.AddHours((counter + 1) * -1) : null
             };
             notifications.Add(notification);
         }
@@ -77,7 +100,11 @@ public static class NotificationSeeder
         return notifications;
     }
 
-    public static async Task<List<Notification>> SeedNotificationsWithSharedRecipient(CargoFlowDbContext db, int count)
+    public static async Task<List<Notification>> SeedNotificationsWithSharedRecipient(
+        CargoFlowDbContext db,
+        int count,
+        NotificationReadStatus readStatus = NotificationReadStatus.Unread
+    )
     {
         var (shipment, _) = await ShipmentSeeder.SeedShipmentWithOffersAsync(db, ShipmentStatusName.OffersReceived, "Ton (t)", 100,
                 [
@@ -85,6 +112,7 @@ public static class NotificationSeeder
                 ]);
 
         List<Notification> notifications = [];
+        var now = DateTime.UtcNow;
         for (var i = 0; i < count; i++)
         {
             var notification = new Notification()
@@ -95,8 +123,8 @@ public static class NotificationSeeder
                 RecipientId = shipment.Id,
                 RecipientType = RecipientType.Customer,
                 Type = NotificationType.OfferSubmitted,
-                CreatedAt = DateTime.UtcNow,
-                ReadAt = null
+                CreatedAt = now.AddDays((i + 1) * -1),
+                ReadAt = readStatus == NotificationReadStatus.Read ? now.AddHours((i + 1) * -1) : null
             };
             notifications.Add(notification);
         }

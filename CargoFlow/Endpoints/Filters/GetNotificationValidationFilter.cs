@@ -17,10 +17,10 @@ public class GetNotificationValidationFilter : IEndpointFilter
         var query = context.HttpContext.Request.Query;
         var errors = new Dictionary<string, string[]>();
 
-        CommonValidationFilter.ValidateIntFilter(query, recipientIdKey, errors);
+        CommonValidationFilter.ValidateIntFilter(query, recipientIdKey, errors, ValidationType.Required);
         CommonValidationFilter.ValidateIntFilter(query, shipmentIdKey, errors);
 
-        CommonValidationFilter.ValidateEnumFilter<NotificationType>(query, notificationTypeKey, errors, ValidationType.Required);
+        CommonValidationFilter.ValidateEnumFilter<NotificationType>(query, notificationTypeKey, errors);
         CommonValidationFilter.ValidateEnumFilter<RecipientType>(query, recipientTypeKey, errors, ValidationType.Required);
 
         CommonValidationFilter.ValidateBoolFilter(query, isReadKey, errors);
