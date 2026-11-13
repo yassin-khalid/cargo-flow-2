@@ -6,6 +6,8 @@ using CargoFlow.Domain.Enums;
 using CargoFlow.Dtos;
 using CargoFlow.Helpers;
 using CargoFlow.IntegrationTests.Helpers;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit.Abstractions;
@@ -289,5 +291,95 @@ public class NotificationIntegrationTests(LocalSqlWebApplicationFactory<Program>
         Assert.All(verifyNotifications, n => Assert.NotNull(n.ReadAt));
     }
 
+    [Fact]
+    public async Task GetNotifications_ShouldRetreiveAllFilteredNotifications()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
 
+        var notifications = await NotificationSeeder.SeedNotificationsWithSharedRecipient(db, 10);
+        var notification = notifications.First();
+
+        var response = await _client.GetAsync($"/api/notifications?recipient_type={notification.RecipientType.ToString().ToLower()}&recipient_id={notification.RecipientId}&shipment_id={notification.ShipmentId}&notification_type={JsonNamingPolicy.SnakeCaseLower.ConvertName(notification.Type.ToString())}&message={notification.Message}&is_read={false}");
+
+        testOutputHelper.WriteLine(await response.Content.ReadAsStringAsync());
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var result = await response.Content.ReadFromJsonAsync<List<NotificationDto>>();
+
+        Assert.NotNull(result);
+        Assert.NotEmpty(result);
+
+        using var verifyScope = factory.Services.CreateScope();
+        var verifyDb = verifyScope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+
+        var verifyNotifications = await verifyDb.Notifications
+            .Where(n => n.RecipientId == notification.RecipientId
+                && n.RecipientType == notification.RecipientType
+                && n.ShipmentId == notification.ShipmentId
+                && n.Type == notification.Type
+                && n.Message == notification.Message
+                && n.ReadAt == null
+            )
+            .OrderByDescending(n => n.CreatedAt)
+            .ToListAsync();
+
+        Assert.NotNull(verifyNotifications);
+
+        var verifyNotificationDtos = verifyNotifications
+            .Select(n => new NotificationDto(n.Id,
+                        n.RecipientType.ToString(),
+                        n.RecipientId,
+                        n.ShipmentId,
+                        n.Type.ToString(),
+                        n.Title,
+                        n.Message,
+                        n.CreatedAt,
+                        n.ReadAt != null))
+            .ToList();
+
+        Assert.Equal(result.Count, verifyNotificationDtos.Count);
+        Assert.True(result.Select(n => n.Id).SequenceEqual(verifyNotificationDtos.Select(n => n.Id)));
+
+    }
+
+    [Fact]
+    public async Task MarkNotificationAsRead_NonExistentNotification_ShouldReturns404()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+        var maxNotificationId = await db.Notifications.MaxAsync(n => n.Id);
+
+        var response = await _client.PatchAsJsonAsync($"/api/notifications/{maxNotificationId}/read?recipient_type={RecipientType.Company.ToString().ToLower()}&recipient_id={1}", new { });
+
+        var result = await response.Content.ReadFromJsonAsync<ProblemDetails>();
+
+        Assert.NotNull(result);
+        testOutputHelper.WriteLine(result.Detail);
+        Assert.Equal(StatusCodes.Status404NotFound, result.Status);
+        Assert.Equal("Notification Not Found", result.Title);
+        Assert.Equal($"Notification #{maxNotificationId} does not exist", result.Detail);
+    }
+
+    [Fact]
+    public async Task MarkNotificationAsRead_WhenSuccess_ShouldMakeReadAtNonNullable()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+
+        var notifications = await NotificationSeeder.SeedNotifications(db, 10);
+        var notification = notifications.FirstOrDefault();
+        Assert.NotNull(notification);
+        Assert.Null(notification.ReadAt);
+
+        var response = await _client.PatchAsJsonAsync($"/api/notifications/{notification.Id}/read?recipient_type={notification.RecipientType.ToString().ToLower()}&recipient_id={notification.RecipientId}", new { });
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+
+        using var verifyScope = factory.Services.CreateScope();
+        var verifyDb = verifyScope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+
+        var verifyNotification = await verifyDb.Notifications.FirstOrDefaultAsync(n => n.Id == notification.Id);
+
+        Assert.NotNull(verifyNotification);
+        Assert.NotNull(verifyNotification.ReadAt);
+    }
 }
