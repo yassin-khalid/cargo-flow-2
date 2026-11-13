@@ -9,7 +9,7 @@ public static class GetNotificationRequestExtensions
     private static T? ToEnum<T>(string? value) where T : struct, Enum
     {
         if (string.IsNullOrWhiteSpace(value)) return null;
-        if (Enum.TryParse<T>(value, out var result))
+        if (Enum.TryParse<T>(JsonNamingPolicy.CamelCase.ConvertName(value), out var result))
         {
             return result;
         }

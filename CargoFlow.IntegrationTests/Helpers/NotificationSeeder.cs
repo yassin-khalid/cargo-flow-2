@@ -7,7 +7,8 @@ namespace CargoFlow.IntegrationTests.Helpers;
 public enum NotificationReadStatus
 {
     Read,
-    Unread
+    Unread,
+    ReadUnread
 }
 
 public static class NotificationSeeder
@@ -41,6 +42,12 @@ public static class NotificationSeeder
         var now = DateTime.UtcNow;
         for (var i = 0; i < count; i++)
         {
+            DateTime? readAt = readStatus switch
+            {
+                NotificationReadStatus.Read => now.AddHours((i + 1) * -1),
+                NotificationReadStatus.Unread => null,
+                _ => Random.Shared.NextDouble() > 0.5 ? now.AddHours((i + 1) * -1) : null
+            };
             var notification = new Notification()
             {
                 ShipmentId = shipment.Id,
@@ -50,7 +57,7 @@ public static class NotificationSeeder
                 RecipientType = RecipientType.Company,
                 Type = NotificationType.OfferSubmitted,
                 CreatedAt = now.AddDays((i + 1) * -1),
-                ReadAt = readStatus == NotificationReadStatus.Read ? now.AddHours((i + 1) * -1) : null
+                ReadAt = readAt
             };
             notifications.Add(notification);
         }
@@ -81,6 +88,12 @@ public static class NotificationSeeder
         foreach (var shipment in shipments)
         {
             counter++;
+            DateTime? readAt = readStatus switch
+            {
+                NotificationReadStatus.Read => now.AddHours((counter + 1) * -1),
+                NotificationReadStatus.Unread => null,
+                _ => Random.Shared.NextDouble() > 0.5 ? now.AddHours((counter + 1) * -1) : null
+            };
             var notification = new Notification()
             {
                 ShipmentId = shipment.Id,
@@ -90,7 +103,7 @@ public static class NotificationSeeder
                 Title = "Test Title",
                 Message = "Test Message",
                 CreatedAt = now.AddDays((counter + 1) * -1),
-                ReadAt = readStatus == NotificationReadStatus.Read ? now.AddHours((counter + 1) * -1) : null
+                ReadAt = readAt
             };
             notifications.Add(notification);
         }
@@ -115,6 +128,12 @@ public static class NotificationSeeder
         var now = DateTime.UtcNow;
         for (var i = 0; i < count; i++)
         {
+            DateTime? readAt = readStatus switch
+            {
+                NotificationReadStatus.Read => now.AddHours((i + 1) * -1),
+                NotificationReadStatus.Unread => null,
+                _ => Random.Shared.NextDouble() > 0.5 ? now.AddHours((i + 1) * -1) : null
+            };
             var notification = new Notification()
             {
                 ShipmentId = shipment.Id,
@@ -124,7 +143,7 @@ public static class NotificationSeeder
                 RecipientType = RecipientType.Customer,
                 Type = NotificationType.OfferSubmitted,
                 CreatedAt = now.AddDays((i + 1) * -1),
-                ReadAt = readStatus == NotificationReadStatus.Read ? now.AddHours((i + 1) * -1) : null
+                ReadAt = readAt
             };
             notifications.Add(notification);
         }

@@ -5,7 +5,6 @@ using CargoFlow.Dtos;
 using CargoFlow.Helpers;
 using CargoFlow.Services;
 using Microsoft.AspNetCore.Http.HttpResults;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 namespace CargoFlow.Endpoints;
@@ -287,7 +286,7 @@ public static class OfferEndpoints
         var statusChangedNotification = notificationService.CreateShipmentStatusChangedNotification(shipment, ShipmentStatusName.Awarded);
         db.Notifications.Add(statusChangedNotification);
 
-        var notification = notificationService.CreateOfferAwardedNotificaiton(shipment, offer);
+        var notification = notificationService.CreateOfferAwardedNotification(shipment, offer);
         db.Notifications.Add(notification);
 
         try

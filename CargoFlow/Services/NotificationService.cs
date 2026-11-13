@@ -7,7 +7,7 @@ public interface INotificationService
 {
     Notification CreateShipmentStatusChangedNotification(Shipment shipment, ShipmentStatusName shipmentStatusName);
     Notification CreateOfferSubmittedNotification(Shipment shipment);
-    Notification CreateOfferAwardedNotificaiton(Shipment shipment, Offer offer);
+    Notification CreateOfferAwardedNotification(Shipment shipment, Offer offer);
 }
 
 public class NotificationService : INotificationService
@@ -32,7 +32,7 @@ public class NotificationService : INotificationService
     {
         return new()
         {
-            Title = "Offer Submittd",
+            Title = "Offer Submitted",
             Message = $"New offer has been submitted successfully for shipment #{shipment.Id}",
             ShipmentId = shipment.Id,
             Type = NotificationType.OfferSubmitted,
@@ -43,7 +43,7 @@ public class NotificationService : INotificationService
         };
     }
 
-    public Notification CreateOfferAwardedNotificaiton(Shipment shipment, Offer offer)
+    public Notification CreateOfferAwardedNotification(Shipment shipment, Offer offer)
     {
         return new()
         {

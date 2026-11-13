@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using CargoFlow.Data;
+using CargoFlow.Domain;
 using CargoFlow.Domain.Enums;
 using CargoFlow.Dtos;
 using CargoFlow.Helpers;
@@ -81,7 +82,7 @@ public class NotificationIntegrationTests(LocalSqlWebApplicationFactory<Program>
             );
 
         Assert.NotNull(notification);
-        Assert.Equal("Offer Submittd", notification.Title);
+        Assert.Equal("Offer Submitted", notification.Title);
         Assert.Equal($"New offer has been submitted successfully for shipment #{shipment.Id}", notification.Message);
         Assert.Null(notification.ReadAt);
 
@@ -389,14 +390,17 @@ public class NotificationIntegrationTests(LocalSqlWebApplicationFactory<Program>
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
 
-        var notifications = await NotificationSeeder.SeedNotificationsWithSharedRecipient(db, 10);
+        var notifications = await NotificationSeeder.SeedNotificationsWithSharedRecipient(db, 10, NotificationReadStatus.ReadUnread);
         var recipientId = notifications[0].RecipientId;
         var recipientTypeString = notifications[0].RecipientType.ToString().ToLower();
+        var unreadCount = notifications.Count(n => n.ReadAt == null);
+        var readCount = notifications.Count(n => n.ReadAt != null);
+        Assert.Equal(notifications.Count, unreadCount + readCount);
 
         var response = await _client.GetAsync($"/api/notifications/unread-count?recipient_type={recipientTypeString}&recipient_id={recipientId}");
         response.EnsureSuccessStatusCode();
         Assert.True(int.TryParse(await response.Content.ReadAsStringAsync(), out var count));
-        Assert.Equal(notifications.Count, count);
+        Assert.Equal(count, unreadCount);
     }
 
     [Fact]
@@ -462,4 +466,21 @@ public class NotificationIntegrationTests(LocalSqlWebApplicationFactory<Program>
 
         Assert.All(verifyNotifications, n => Assert.Null(n.ReadAt));
     }
+
+
+    [Fact]
+    public async Task GetNotifications_MissingRecipientId_ShouldReturns400()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
+
+        var notifications = await NotificationSeeder.SeedNotificationsWithSharedRecipient(db, 10);
+        var notification = notifications.First();
+
+        var response = await _client.GetAsync($"/api/notifications?recipient_type={notification.RecipientType.ToString().ToLower()}&shipment_id={notification.ShipmentId}&notification_type={JsonNamingPolicy.SnakeCaseLower.ConvertName(notification.Type.ToString())}&message={notification.Message}&is_read={false}");
+
+        testOutputHelper.WriteLine(await response.Content.ReadAsStringAsync());
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
 }
