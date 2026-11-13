@@ -404,7 +404,7 @@ public class NotificationIntegrationTests(LocalSqlWebApplicationFactory<Program>
     }
 
     [Fact]
-    public async Task GetUnreadNotificaitonCount_WhenAlreadyReadOrUnmatchedRecipient_ShouldReturnsZero()
+    public async Task GetUnreadNotificaitonCount_WhenAlreadyRead_ShouldReturnsZero()
     {
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
