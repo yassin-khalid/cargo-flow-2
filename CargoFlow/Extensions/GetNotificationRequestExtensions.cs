@@ -1,31 +1,19 @@
 using System.Text.Json;
 using CargoFlow.Domain.Enums;
 using CargoFlow.Dtos;
+using CargoFlow.Helpers;
 
 namespace CargoFlow.Extensions;
 
 public static class GetNotificationRequestExtensions
 {
-    private static T? ToEnum<T>(string? value) where T : struct, Enum
-    {
-        if (string.IsNullOrWhiteSpace(value)) return null;
-        if (Enum.TryParse<T>(JsonNamingPolicy.CamelCase.ConvertName(value), out var result))
-        {
-            return result;
-        }
-        else
-        {
-            return null;
-        }
-    }
     public static GetNotificationQuery ToQuery(this GetNotificationRequestDto dto)
     {
-
         return new GetNotificationQuery(
-         Enum.Parse<RecipientType>(JsonNamingPolicy.CamelCase.ConvertName(dto.RecipientType), true),
+            EnumCache<RecipientType>.ToEnumRequired(dto.RecipientType),
             dto.RecipientId,
             dto.ShipmentId,
-            ToEnum<NotificationType>(dto.NotificationType),
+            EnumCache<NotificationType>.ToEnum(dto.NotificationType),
             dto.Title,
             dto.Message,
             dto.IsRead);
