@@ -303,16 +303,12 @@ public class NotificationIntegrationTests(LocalSqlWebApplicationFactory<Program>
 
         var notificationList = await NotificationSeeder.SeedNotificationsWithSharedRecipient(db, new()
         {
-            [NotificationType.OfferAwarded] = 10,
             [NotificationType.OfferSubmitted] = 12,
             [NotificationType.ShipmentStatusChanged] = 13
         });
 
         var submittedNotifications = notificationList.Where(n => n.Type == NotificationType.OfferSubmitted).ToList();
         Assert.Equal(12, submittedNotifications.Count);
-
-        var awardedNotifications = notificationList.Where(n => n.Type == NotificationType.OfferAwarded).ToList();
-        Assert.Equal(10, awardedNotifications.Count);
 
         var shipmentStatusNotifications = notificationList.Where(n => n.Type == NotificationType.ShipmentStatusChanged).ToList();
         Assert.Equal(13, shipmentStatusNotifications.Count);
@@ -327,6 +323,8 @@ public class NotificationIntegrationTests(LocalSqlWebApplicationFactory<Program>
 
         Assert.NotNull(result);
         Assert.NotEmpty(result);
+        Assert.Equal(12, result.Count);
+        Assert.All(result, r => Assert.Equal(NotificationType.OfferSubmitted.ToString(), r.NotificationType));
 
         using var verifyScope = factory.Services.CreateScope();
         var verifyDb = verifyScope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
