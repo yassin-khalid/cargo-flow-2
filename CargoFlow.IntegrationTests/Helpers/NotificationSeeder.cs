@@ -115,9 +115,8 @@ public static class NotificationSeeder
 
     public static async Task<List<Notification>> SeedNotificationsWithSharedRecipient(
         CargoFlowDbContext db,
-        int count,
-        NotificationReadStatus readStatus = NotificationReadStatus.Unread,
-        NotificationType notificationType = NotificationType.OfferSubmitted
+        Dictionary<NotificationType, int> countByNotificationTypeDict,
+        NotificationReadStatus readStatus = NotificationReadStatus.Unread
     )
     {
         var (shipment, _) = await ShipmentSeeder.SeedShipmentWithOffersAsync(db, ShipmentStatusName.OffersReceived, "Ton (t)", 100,
@@ -127,44 +126,33 @@ public static class NotificationSeeder
 
         List<Notification> notifications = [];
         var now = DateTime.UtcNow;
-        for (var i = 0; i < count; i++)
+        foreach (var type in countByNotificationTypeDict.Keys)
         {
-            DateTime? readAt = readStatus switch
+            for (var i = 0; i < countByNotificationTypeDict[type]; i++)
             {
-                NotificationReadStatus.Read => now.AddHours((i + 1) * -1),
-                NotificationReadStatus.Unread => null,
-                _ => i % 2 == 0 ? now.AddHours((i + 1) * -1) : null
-            };
-            var notification = new Notification()
-            {
-                ShipmentId = shipment.Id,
-                Title = "Test Title",
-                Message = "this is a test message",
-                RecipientId = shipment.CustomerId,
-                RecipientType = RecipientType.Customer,
-                Type = notificationType,
-                CreatedAt = now.AddDays((i + 1) * -1),
-                ReadAt = readAt
-            };
-            notifications.Add(notification);
+                DateTime? readAt = readStatus switch
+                {
+                    NotificationReadStatus.Read => now.AddHours((i + 1) * -1),
+                    NotificationReadStatus.Unread => null,
+                    _ => i % 2 == 0 ? now.AddHours((i + 1) * -1) : null
+                };
+                var notification = new Notification()
+                {
+                    ShipmentId = shipment.Id,
+                    Title = "Test Title",
+                    Message = "this is a test message",
+                    RecipientId = shipment.CustomerId,
+                    RecipientType = RecipientType.Customer,
+                    Type = type,
+                    CreatedAt = now.AddDays((i + 1) * -1),
+                    ReadAt = readAt
+                };
+                notifications.Add(notification);
+            }
         }
 
         db.Notifications.AddRange(notifications);
         await db.SaveChangesAsync();
-        return notifications;
-    }
-
-    public static async Task<List<Notification>> SeedNotificationsWithSharedRecipientAndVariablesType(
-        CargoFlowDbContext db,
-        Dictionary<NotificationType, int> notificationTypeWithCount,
-        NotificationReadStatus readStatus = NotificationReadStatus.Unread
-    )
-    {
-        List<Notification> notifications = [];
-        foreach (var type in notificationTypeWithCount.Keys)
-        {
-            notifications.AddRange(await SeedNotificationsWithSharedRecipient(db, notificationTypeWithCount[type], readStatus, type));
-        }
         return notifications;
     }
 }

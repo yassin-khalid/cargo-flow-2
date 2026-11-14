@@ -271,7 +271,10 @@ public class NotificationIntegrationTests(LocalSqlWebApplicationFactory<Program>
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
 
-        var notifications = await NotificationSeeder.SeedNotificationsWithSharedRecipient(db, 10);
+        var notifications = await NotificationSeeder.SeedNotificationsWithSharedRecipient(db, new()
+        {
+            [NotificationType.OfferSubmitted] = 10
+        });
         var notification = notifications.First();
         var notificationIds = notifications.Select(n => n.Id);
 
@@ -298,7 +301,7 @@ public class NotificationIntegrationTests(LocalSqlWebApplicationFactory<Program>
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
 
-        var notificationList = await NotificationSeeder.SeedNotificationsWithSharedRecipientAndVariablesType(db, new()
+        var notificationList = await NotificationSeeder.SeedNotificationsWithSharedRecipient(db, new()
         {
             [NotificationType.OfferAwarded] = 10,
             [NotificationType.OfferSubmitted] = 12,
@@ -405,7 +408,12 @@ public class NotificationIntegrationTests(LocalSqlWebApplicationFactory<Program>
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
 
-        var notifications = await NotificationSeeder.SeedNotificationsWithSharedRecipient(db, 10, NotificationReadStatus.ReadUnread);
+        var notifications = await NotificationSeeder.SeedNotificationsWithSharedRecipient(db, new()
+        {
+            [NotificationType.OfferSubmitted] = 10
+        },
+            NotificationReadStatus.ReadUnread
+        );
         var recipientId = notifications[0].RecipientId;
         var recipientTypeString = notifications[0].RecipientType.ToString().ToLower();
         var unreadCount = notifications.Count(n => n.ReadAt == null);
@@ -424,7 +432,13 @@ public class NotificationIntegrationTests(LocalSqlWebApplicationFactory<Program>
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
 
-        var notifications = await NotificationSeeder.SeedNotificationsWithSharedRecipient(db, 10, NotificationReadStatus.Read);
+        var notifications = await NotificationSeeder.SeedNotificationsWithSharedRecipient(db, new()
+        {
+            [NotificationType.OfferSubmitted] = 10
+        },
+            NotificationReadStatus.Read
+        );
+
         Assert.NotNull(notifications);
         Assert.Equal(10, notifications.Count);
 
@@ -489,7 +503,10 @@ public class NotificationIntegrationTests(LocalSqlWebApplicationFactory<Program>
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
 
-        var notifications = await NotificationSeeder.SeedNotificationsWithSharedRecipient(db, 10);
+        var notifications = await NotificationSeeder.SeedNotificationsWithSharedRecipient(db, new()
+        {
+            [NotificationType.OfferSubmitted] = 10
+        });
         var notification = notifications.First();
 
         var response = await _client.GetAsync($"/api/notifications?recipient_type={notification.RecipientType.ToString().ToLower()}&shipment_id={notification.ShipmentId}&notification_type={JsonNamingPolicy.SnakeCaseLower.ConvertName(notification.Type.ToString())}&message={notification.Message}&is_read={false}");
