@@ -298,10 +298,25 @@ public class NotificationIntegrationTests(LocalSqlWebApplicationFactory<Program>
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
 
-        var notifications = await NotificationSeeder.SeedNotificationsWithSharedRecipient(db, 10);
-        var notification = notifications.First();
+        var notificationList = await NotificationSeeder.SeedNotificationsWithSharedRecipientAndVariablesType(db, new()
+        {
+            [NotificationType.OfferAwarded] = 10,
+            [NotificationType.OfferSubmitted] = 12,
+            [NotificationType.ShipmentStatusChanged] = 13
+        });
 
-        var response = await _client.GetAsync($"/api/notifications?recipient_type={notification.RecipientType.ToString().ToLower()}&recipient_id={notification.RecipientId}&shipment_id={notification.ShipmentId}&notification_type={JsonNamingPolicy.SnakeCaseLower.ConvertName(notification.Type.ToString())}&message={notification.Message}&is_read={false}");
+        var submittedNotifications = notificationList.Where(n => n.Type == NotificationType.OfferSubmitted).ToList();
+        Assert.Equal(12, submittedNotifications.Count);
+
+        var awardedNotifications = notificationList.Where(n => n.Type == NotificationType.OfferAwarded).ToList();
+        Assert.Equal(10, awardedNotifications.Count);
+
+        var shipmentStatusNotifications = notificationList.Where(n => n.Type == NotificationType.ShipmentStatusChanged).ToList();
+        Assert.Equal(13, shipmentStatusNotifications.Count);
+
+        var notification = submittedNotifications.First();
+
+        var response = await _client.GetAsync($"/api/notifications?recipient_type={notification.RecipientType.ToString().ToLower()}&recipient_id={notification.RecipientId}&shipment_id={notification.ShipmentId}&notification_type={JsonNamingPolicy.SnakeCaseLower.ConvertName(NotificationType.OfferSubmitted.ToString())}&message={notification.Message}&is_read={false}");
 
         testOutputHelper.WriteLine(await response.Content.ReadAsStringAsync());
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);

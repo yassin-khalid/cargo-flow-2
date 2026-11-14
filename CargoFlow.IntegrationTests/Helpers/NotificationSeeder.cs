@@ -116,7 +116,8 @@ public static class NotificationSeeder
     public static async Task<List<Notification>> SeedNotificationsWithSharedRecipient(
         CargoFlowDbContext db,
         int count,
-        NotificationReadStatus readStatus = NotificationReadStatus.Unread
+        NotificationReadStatus readStatus = NotificationReadStatus.Unread,
+        NotificationType notificationType = NotificationType.OfferSubmitted
     )
     {
         var (shipment, _) = await ShipmentSeeder.SeedShipmentWithOffersAsync(db, ShipmentStatusName.OffersReceived, "Ton (t)", 100,
@@ -139,9 +140,9 @@ public static class NotificationSeeder
                 ShipmentId = shipment.Id,
                 Title = "Test Title",
                 Message = "this is a test message",
-                RecipientId = shipment.Id,
+                RecipientId = shipment.CustomerId,
                 RecipientType = RecipientType.Customer,
-                Type = NotificationType.OfferSubmitted,
+                Type = notificationType,
                 CreatedAt = now.AddDays((i + 1) * -1),
                 ReadAt = readAt
             };
@@ -150,6 +151,20 @@ public static class NotificationSeeder
 
         db.Notifications.AddRange(notifications);
         await db.SaveChangesAsync();
+        return notifications;
+    }
+
+    public static async Task<List<Notification>> SeedNotificationsWithSharedRecipientAndVariablesType(
+        CargoFlowDbContext db,
+        Dictionary<NotificationType, int> notificationTypeWithCount,
+        NotificationReadStatus readStatus = NotificationReadStatus.Unread
+    )
+    {
+        List<Notification> notifications = [];
+        foreach (var type in notificationTypeWithCount.Keys)
+        {
+            notifications.AddRange(await SeedNotificationsWithSharedRecipient(db, notificationTypeWithCount[type], readStatus, type));
+        }
         return notifications;
     }
 }
