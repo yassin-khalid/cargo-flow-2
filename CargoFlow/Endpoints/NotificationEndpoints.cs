@@ -1,7 +1,10 @@
+using System.Security.Claims;
 using CargoFlow.Data;
+using CargoFlow.Domain.Enums;
 using CargoFlow.Dtos;
 using CargoFlow.Endpoints.Filters;
 using CargoFlow.Extensions;
+using CargoFlow.Helpers;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 
@@ -22,11 +25,19 @@ public static class NotificationEndpoints
         return group;
     }
 
-    private static async Task<Ok<List<NotificationDto>>> GetNotifications(CargoFlowDbContext db, [AsParameters] GetNotificationRequestDto dto)
+    private static async Task<Ok<List<NotificationDto>>> GetNotifications(
+        CargoFlowDbContext db,
+        [AsParameters] GetNotificationRequestDto dto,
+        IRecipientsReferenceData recipientsReferenceData,
+        ClaimsPrincipal user
+    )
     {
+        var userId = user.FindFirstValue(ClaimTypes.NameIdentifier)!;
+
+        var (recipientType, recipientId) = recipientsReferenceData.GetRecipinetDataFromUserId(userId);
+
         var query = dto.ToQuery();
-        var (recipientType,
-            recipientId,
+        var (
             shipmentId,
             notificationType,
             title,
@@ -73,20 +84,29 @@ public static class NotificationEndpoints
         return TypedResults.Ok(result);
     }
 
-    private static async Task<Ok<int>> GetUnreadNotificationCount(CargoFlowDbContext db, [AsParameters] MarkNotificationAsReadRequestDto dto)
+    private static async Task<Ok<int>> GetUnreadNotificationCount(
+        CargoFlowDbContext db,
+        IRecipientsReferenceData recipientsReferenceData,
+        ClaimsPrincipal user
+    )
     {
-        var query = dto.ToQuery();
-        var (recipientId, recipientType) = query;
+        var userId = user.FindFirstValue(ClaimTypes.NameIdentifier)!;
+        var (recipientType, recipientId) = recipientsReferenceData.GetRecipinetDataFromUserId(userId);
         return TypedResults.Ok(await db.Notifications
             .AsNoTracking()
-            .Where(n => n.ReadAt == null && n.RecipientId == query.RecipientId && n.RecipientType == query.RecipientType)
+            .Where(n => n.ReadAt == null && n.RecipientId == recipientId && n.RecipientType == recipientType)
             .CountAsync());
     }
 
-    private static async Task<Results<NoContent, ProblemHttpResult>> MarkNotificationAsRead(int id, CargoFlowDbContext db, [AsParameters] MarkNotificationAsReadRequestDto dto)
+    private static async Task<Results<NoContent, ProblemHttpResult>> MarkNotificationAsRead(
+        int id,
+        CargoFlowDbContext db,
+        IRecipientsReferenceData recipientsReferenceData,
+        ClaimsPrincipal user
+    )
     {
-        var query = dto.ToQuery();
-        var (recipientId, recipientType) = query;
+        var userId = user.FindFirstValue(ClaimTypes.NameIdentifier)!;
+        var (recipientType, recipientId) = recipientsReferenceData.GetRecipinetDataFromUserId(userId);
 
         var notification = await db.Notifications
         .FirstOrDefaultAsync(n => n.Id == id && n.RecipientId == recipientId && n.RecipientType == recipientType);
@@ -107,10 +127,14 @@ public static class NotificationEndpoints
         return TypedResults.NoContent();
     }
 
-    private static async Task<NoContent> MarkAllNotificationsAsRead(CargoFlowDbContext db, [AsParameters] MarkNotificationAsReadRequestDto dto)
+    private static async Task<NoContent> MarkAllNotificationsAsRead(
+        CargoFlowDbContext db,
+        IRecipientsReferenceData recipientsReferenceData,
+        ClaimsPrincipal user
+    )
     {
-        var query = dto.ToQuery();
-        var (recipientId, recipientType) = query;
+        var userId = user.FindFirstValue(ClaimTypes.NameIdentifier)!;
+        var (recipientType, recipientId) = recipientsReferenceData.GetRecipinetDataFromUserId(userId);
 
         var now = DateTime.UtcNow;
         await db.Notifications

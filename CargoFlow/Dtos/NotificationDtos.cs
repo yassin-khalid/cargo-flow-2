@@ -25,10 +25,6 @@ public record NotificationDto(
     bool IsRead);
 
 public record GetNotificationRequestDto(
-    [FromQuery(Name = "recipient_type")]
-    string RecipientType,
-    [FromQuery(Name = "recipient_id")]
-    int RecipientId,
     [FromQuery(Name = "shipment_id")]
     int? ShipmentId,
     [FromQuery(Name = "notification_type")]
@@ -40,19 +36,19 @@ public record GetNotificationRequestDto(
     [FromQuery(Name = "is_read")]
     bool? IsRead);
 
-public record MarkNotificationAsReadRequestDto(
-    [FromQuery(Name = "recipient_type")]
-    string RecipientType,
-    [FromQuery(Name = "recipient_id")]
-    int RecipientId);
+// public record MarkNotificationAsReadRequestDto(
+//     [FromQuery(Name = "recipient_type")]
+//     string RecipientType,
+//     [FromQuery(Name = "recipient_id")]
+//     int RecipientId);
 
 public record MarkNotificationAsReadQuery(
     int RecipientId,
     RecipientType RecipientType);
 
 public record GetNotificationQuery(
-    RecipientType RecipientType,
-    int RecipientId,
+    // RecipientType RecipientType,
+    // int RecipientId,
     int? ShipmentId,
     NotificationType? NotificationType,
     string? Title,

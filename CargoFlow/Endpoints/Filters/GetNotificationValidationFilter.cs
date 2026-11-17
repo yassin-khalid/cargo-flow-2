@@ -4,8 +4,8 @@ namespace CargoFlow.Endpoints.Filters;
 
 public class GetNotificationValidationFilter : IEndpointFilter
 {
-    private const string recipientTypeKey = "recipient_type";
-    private const string recipientIdKey = "recipient_id";
+    // private const string recipientTypeKey = "recipient_type";
+    // private const string recipientIdKey = "recipient_id";
     private const string shipmentIdKey = "shipment_id";
     private const string notificationTypeKey = "notification_type";
     // private const string titleKey = "title";
@@ -17,11 +17,11 @@ public class GetNotificationValidationFilter : IEndpointFilter
         var query = context.HttpContext.Request.Query;
         var errors = new Dictionary<string, string[]>();
 
-        CommonValidationFilter.ValidateIntFilter(query, recipientIdKey, errors, ValidationType.Required);
+        // CommonValidationFilter.ValidateIntFilter(query, recipientIdKey, errors, ValidationType.Required);
         CommonValidationFilter.ValidateIntFilter(query, shipmentIdKey, errors);
 
         CommonValidationFilter.ValidateEnumFilter<NotificationType>(query, notificationTypeKey, errors);
-        CommonValidationFilter.ValidateEnumFilter<RecipientType>(query, recipientTypeKey, errors, ValidationType.Required);
+        // CommonValidationFilter.ValidateEnumFilter<RecipientType>(query, recipientTypeKey, errors, ValidationType.Required);
 
         CommonValidationFilter.ValidateBoolFilter(query, isReadKey, errors);
 

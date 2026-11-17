@@ -10,8 +10,8 @@ public static class GetNotificationRequestExtensions
     public static GetNotificationQuery ToQuery(this GetNotificationRequestDto dto)
     {
         return new GetNotificationQuery(
-            EnumCache<RecipientType>.ToEnumRequired(dto.RecipientType),
-            dto.RecipientId,
+            // EnumCache<RecipientType>.ToEnumRequired(dto.RecipientType),
+            // dto.RecipientId,
             dto.ShipmentId,
             EnumCache<NotificationType>.ToEnum(dto.NotificationType),
             dto.Title,

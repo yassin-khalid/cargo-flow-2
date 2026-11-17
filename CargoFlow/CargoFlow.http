@@ -72,7 +72,30 @@ Content-Type: application/json
 }
 ###
 
-GET {{CargoFlow_HostAddress}}/api/notifications?recipient_type=customer&notification_type=offer_awarde
+GET {{CargoFlow_HostAddress}}/api/notifications?notification_type=offer_awarded
+Accept: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6InRlc3RAY29tcGFueS5jb20iLCJuYW1laWQiOiI1M2JiZWVjOS00Mjc4LTQ1OTEtODg3OS00YTYzZmYzMTBiZGUiLCJ1c2VyX3R5cGUiOiJDb21wYW55Iiwicm9sZSI6IkNvbXBhbnkiLCJuYmYiOjE3OTQ4NTg2MTIsImV4cCI6MTc5NDg2MjIxMiwiaWF0IjoxNzk0ODU4NjEyLCJpc3MiOiJDYXJnb0Zsb3dBcGkiLCJhdWQiOiJDYXJnb0Zsb3dDbGllbnQifQ.vYU0tJl1sa7dPE4vpJ2BuYrB2mCiRgbeorkXPr8biYU
 ###
 
 GET {{CargoFlow_HostAddress}}/api/notifications/unread-count
+###
+
+POST {{CargoFlow_HostAddress}}/api/auth/register/company
+Content-Type: application/json
+
+{
+  "email": "test@company.com",
+  "password": "company@CargoFlow123",
+  "name": "test_company",
+  "tax_id": "123456789"
+}
+
+###
+
+POST {{CargoFlow_HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "test@company.com",
+  "password": "company@CargoFlow123"
+}

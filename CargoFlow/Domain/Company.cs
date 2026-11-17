@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Identity;
 
 namespace CargoFlow.Domain;
 
@@ -15,8 +16,11 @@ public class Company
     [MaxLength(15, ErrorMessage = "TaxId must have maximum 15 characters")]
     public string TaxID { get; set; }
 
+    public string? CompanyUserId { get; set; }
+    public IdentityUser? CompanyUser { get; set; }
+
     public List<Driver> Drivers { get; set; } = [];
     public List<Offer> Offers { get; set; } = [];
     public List<Vehicle> Vehicles { get; set; } = [];
-    
+
 }

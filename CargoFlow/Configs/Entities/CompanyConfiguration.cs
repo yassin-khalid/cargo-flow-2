@@ -11,5 +11,11 @@ public class CompanyConfiguration : IEntityTypeConfiguration<Company>
         builder.Property(c => c.Name).HasMaxLength(40).IsRequired();
         builder.HasIndex(c => c.Name).IsUnique();
         builder.HasIndex(c => c.TaxID).IsUnique();
+
+        builder.HasOne(c => c.CompanyUser)
+            .WithMany()
+            .HasForeignKey(c => c.CompanyUserId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }
