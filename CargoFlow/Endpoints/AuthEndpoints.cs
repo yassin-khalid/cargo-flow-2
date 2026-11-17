@@ -199,11 +199,11 @@ public static class AuthEndpoints
         var id = 0;
         if (isCompany)
         {
-            id = db.Companies.Single(c => c.Id == id).Id;
+            id = db.Companies.Single(c => c.CompanyUserId == user.Id).Id;
         }
         else
         {
-            id = db.Customers.Single(c => c.Id == id).Id;
+            id = db.Customers.Single(c => c.CustomerUserId == user.Id).Id;
         }
 
         var idClaim = isCompany ? new Claim("company_id", id.ToString()) : new Claim("customer_id", id.ToString());
