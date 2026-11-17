@@ -1,6 +1,5 @@
 using System.Security.Claims;
 using CargoFlow.Data;
-using CargoFlow.Domain.Enums;
 using CargoFlow.Dtos;
 using CargoFlow.Endpoints.Filters;
 using CargoFlow.Extensions;
@@ -16,25 +15,29 @@ public static class NotificationEndpoints
     {
         group.MapGet("/", GetNotifications)
             .AddEndpointFilter<GetNotificationValidationFilter>();
-        group.MapGet("/unread-count", GetUnreadNotificationCount)
-            .AddEndpointFilter<MarkNotificationAsReadValidationFilter>();
-        group.MapPatch("/{id:int}/read", MarkNotificationAsRead)
-            .AddEndpointFilter<MarkNotificationAsReadValidationFilter>();
-        group.MapPatch("/read-all", MarkAllNotificationsAsRead)
-            .AddEndpointFilter<MarkNotificationAsReadValidationFilter>();
+        group.MapGet("/unread-count", GetUnreadNotificationCount);
+        group.MapPatch("/{id:int}/read", MarkNotificationAsRead);
+        group.MapPatch("/read-all", MarkAllNotificationsAsRead);
         return group;
     }
 
-    private static async Task<Ok<List<NotificationDto>>> GetNotifications(
+    private static async Task<Results<Ok<List<NotificationDto>>, ProblemHttpResult>> GetNotifications(
         CargoFlowDbContext db,
         [AsParameters] GetNotificationRequestDto dto,
         IRecipientsReferenceData recipientsReferenceData,
         ClaimsPrincipal user
     )
     {
-        var userId = user.FindFirstValue(ClaimTypes.NameIdentifier)!;
+        var (recipientType, recipientId) = recipientsReferenceData.GetRecipientData(user);
 
-        var (recipientType, recipientId) = recipientsReferenceData.GetRecipinetDataFromUserId(userId);
+        if (recipientType is null || recipientId is null)
+        {
+            return TypedResults.Problem(
+                statusCode: StatusCodes.Status403Forbidden,
+                title: "Missing Claims Issue",
+                detail: "Missing necessary claims to perform this endpoint"
+            );
+        }
 
         var query = dto.ToQuery();
         var (
@@ -84,14 +87,22 @@ public static class NotificationEndpoints
         return TypedResults.Ok(result);
     }
 
-    private static async Task<Ok<int>> GetUnreadNotificationCount(
+    private static async Task<Results<ProblemHttpResult, Ok<int>>> GetUnreadNotificationCount(
         CargoFlowDbContext db,
         IRecipientsReferenceData recipientsReferenceData,
         ClaimsPrincipal user
     )
     {
-        var userId = user.FindFirstValue(ClaimTypes.NameIdentifier)!;
-        var (recipientType, recipientId) = recipientsReferenceData.GetRecipinetDataFromUserId(userId);
+        var (recipientType, recipientId) = recipientsReferenceData.GetRecipientData(user);
+
+        if (recipientType is null || recipientId is null)
+        {
+            return TypedResults.Problem(
+                statusCode: StatusCodes.Status403Forbidden,
+                title: "Missing Claims Issue",
+                detail: "Missing necessary claims to perform this endpoint"
+            );
+        }
         return TypedResults.Ok(await db.Notifications
             .AsNoTracking()
             .Where(n => n.ReadAt == null && n.RecipientId == recipientId && n.RecipientType == recipientType)
@@ -105,8 +116,16 @@ public static class NotificationEndpoints
         ClaimsPrincipal user
     )
     {
-        var userId = user.FindFirstValue(ClaimTypes.NameIdentifier)!;
-        var (recipientType, recipientId) = recipientsReferenceData.GetRecipinetDataFromUserId(userId);
+        var (recipientType, recipientId) = recipientsReferenceData.GetRecipientData(user);
+
+        if (recipientType is null || recipientId is null)
+        {
+            return TypedResults.Problem(
+                statusCode: StatusCodes.Status403Forbidden,
+                title: "Missing Claims Issue",
+                detail: "Missing necessary claims to perform this endpoint"
+            );
+        }
 
         var notification = await db.Notifications
         .FirstOrDefaultAsync(n => n.Id == id && n.RecipientId == recipientId && n.RecipientType == recipientType);
@@ -127,14 +146,22 @@ public static class NotificationEndpoints
         return TypedResults.NoContent();
     }
 
-    private static async Task<NoContent> MarkAllNotificationsAsRead(
+    private static async Task<Results<NoContent, ProblemHttpResult>> MarkAllNotificationsAsRead(
         CargoFlowDbContext db,
         IRecipientsReferenceData recipientsReferenceData,
         ClaimsPrincipal user
     )
     {
-        var userId = user.FindFirstValue(ClaimTypes.NameIdentifier)!;
-        var (recipientType, recipientId) = recipientsReferenceData.GetRecipinetDataFromUserId(userId);
+        var (recipientType, recipientId) = recipientsReferenceData.GetRecipientData(user);
+
+        if (recipientType is null || recipientId is null)
+        {
+            return TypedResults.Problem(
+                statusCode: StatusCodes.Status403Forbidden,
+                title: "Missing Claims Issue",
+                detail: "Missing necessary claims to perform this endpoint"
+            );
+        }
 
         var now = DateTime.UtcNow;
         await db.Notifications

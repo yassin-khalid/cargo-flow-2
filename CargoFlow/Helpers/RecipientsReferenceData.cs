@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using CargoFlow.Data;
 using CargoFlow.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -6,41 +7,23 @@ namespace CargoFlow.Helpers;
 
 public interface IRecipientsReferenceData
 {
-    (RecipientType, int) GetRecipinetDataFromUserId(string userId);
+    (RecipientType?, int?) GetRecipientData(ClaimsPrincipal user);
 }
 
 public class RecipientsReferenceData : IRecipientsReferenceData
 {
-    private readonly Dictionary<string, int> _companyUserId;
-    private readonly Dictionary<string, int> _customerUserId;
 
-    public RecipientsReferenceData(IServiceProvider serviceProvider)
+    public (RecipientType?, int?) GetRecipientData(ClaimsPrincipal user)
     {
-        using var scope = serviceProvider.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<CargoFlowDbContext>();
 
-        _companyUserId = db.Companies
-            .AsNoTracking()
-            .Where(c => c.CompanyUserId != null)
-            .ToDictionary(c => c.CompanyUserId!, c => c.Id);
+        var recipientType = user.FindFirst("user_type")?.Value;
 
-        _customerUserId = db.Customers
-            .AsNoTracking()
-            .Where(c => c.CustomerUserId != null)
-            .ToDictionary(c => c.CustomerUserId!, c => c.Id);
-    }
-
-    public (RecipientType, int) GetRecipinetDataFromUserId(string userId)
-    {
-        if (_customerUserId.TryGetValue(userId, out var customerId))
+        return recipientType switch
         {
-            return (RecipientType.Customer, customerId);
-        }
-        if (_companyUserId.TryGetValue(userId, out var companyId))
-        {
-            return (RecipientType.Company, companyId);
-        }
-        throw new ArgumentException("Invalid userId", nameof(userId));
+            "Customer" when int.TryParse(user.FindFirst("customer_id")?.Value, out var customerId) => (RecipientType.Customer, customerId),
+            "Company" when int.TryParse(user.FindFirst("company_id")?.Value, out var companyId) => (RecipientType.Company, companyId),
+            _ => (null, null)
+        };
 
     }
 }

@@ -34,7 +34,7 @@ public static class AuthEndpoints
             var user = new IdentityUser()
             {
                 Email = dto.Email,
-                UserName = dto.Name
+                UserName = dto.Email
             };
 
             var createUserResult = await userManager.CreateAsync(user, dto.Password);
@@ -44,7 +44,11 @@ public static class AuthEndpoints
                 return TypedResults.Problem(
                     statusCode: StatusCodes.Status400BadRequest,
                     title: "User Creation Issue",
-                    detail: "Unable to create user"
+                    detail: "Unable to create user",
+                    extensions: new Dictionary<string, object?>()
+                    {
+                        ["errors"] = createUserResult.Errors
+                    }
                 );
             }
 
@@ -54,7 +58,11 @@ public static class AuthEndpoints
                 return TypedResults.Problem(
                     statusCode: StatusCodes.Status400BadRequest,
                     title: "User Creation Issue",
-                    detail: "Unable to create user"
+                    detail: "Unable to create user",
+                    extensions: new Dictionary<string, object?>()
+                    {
+                        ["errors"] = addToRoleResult.Errors
+                    }
                );
             }
 
@@ -96,7 +104,7 @@ public static class AuthEndpoints
             var user = new IdentityUser()
             {
                 Email = dto.Email,
-                UserName = dto.Name
+                UserName = dto.Email
             };
 
             var createUserResult = await userManager.CreateAsync(user, dto.Password);
@@ -106,7 +114,7 @@ public static class AuthEndpoints
                 return TypedResults.Problem(
                     statusCode: StatusCodes.Status400BadRequest,
                     title: "User Creation Issue",
-                    detail: "Unable to create user 'CreateUserResult'",
+                    detail: "Unable to create user",
                     extensions: new Dictionary<string, object?>()
                     {
                         ["errors"] = createUserResult.Errors
@@ -120,7 +128,13 @@ public static class AuthEndpoints
                 return TypedResults.Problem(
                     statusCode: StatusCodes.Status400BadRequest,
                     title: "User Creation Issue",
-                    detail: "Unable to create user 'AddToRoleResult'"
+                    detail: "Unable to create user",
+
+                    extensions: new Dictionary<string, object?>()
+                    {
+                        ["errors"] = addToRoleResult.Errors
+                    }
+
                );
             }
 
@@ -143,7 +157,7 @@ public static class AuthEndpoints
         {
             await transaction.RollbackAsync();
             return TypedResults.Problem(
-                statusCode: StatusCodes.Status400BadRequest,
+                statusCode: StatusCodes.Status500InternalServerError,
                 title: "User Creation Issue",
                 detail: "Unable to create user 'SaveResult'"
            );
@@ -182,11 +196,23 @@ public static class AuthEndpoints
         }
 
         var isCompany = await db.Companies.AnyAsync(c => c.CompanyUserId == user.Id);
+        var id = 0;
+        if (isCompany)
+        {
+            id = db.Companies.Single(c => c.Id == id).Id;
+        }
+        else
+        {
+            id = db.Customers.Single(c => c.Id == id).Id;
+        }
+
+        var idClaim = isCompany ? new Claim("company_id", id.ToString()) : new Claim("customer_id", id.ToString());
 
         List<Claim> claims = [
             new(ClaimTypes.Email, user.Email!),
             new(ClaimTypes.NameIdentifier, user.Id),
-            new ("user_type", isCompany ? "Company" : "Customer")
+            new ("user_type", isCompany ? "Company" : "Customer"),
+            idClaim
         ];
 
         var roles = await userManager.GetRolesAsync(user);

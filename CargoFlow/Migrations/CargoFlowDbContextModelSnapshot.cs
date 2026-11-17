@@ -75,7 +75,9 @@ namespace CargoFlow.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CompanyUserId");
+                    b.HasIndex("CompanyUserId")
+                        .IsUnique()
+                        .HasFilter("[CompanyUserId] IS NOT NULL");
 
                     b.HasIndex("Name")
                         .IsUnique();
@@ -109,7 +111,9 @@ namespace CargoFlow.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CustomerUserId");
+                    b.HasIndex("CustomerUserId")
+                        .IsUnique()
+                        .HasFilter("[CustomerUserId] IS NOT NULL");
 
                     b.HasIndex("NationalId")
                         .IsUnique();

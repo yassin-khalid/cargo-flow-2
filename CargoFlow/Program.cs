@@ -18,13 +18,17 @@ builder.Services.AddDbContext<CargoFlowDbContext>(options =>
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower);
 builder.Services.AddSingleton<IReferenceData, ReferenceData>();
-builder.Services.AddSingleton<IRecipientsReferenceData, RecipientsReferenceData>();
+builder.Services.AddScoped<IRecipientsReferenceData, RecipientsReferenceData>();
 builder.Services.AddScoped<IOfferExpirationService, OfferExpirationService>();
 builder.Services.AddHostedService<OfferExpirationWorker>();
 builder.Services.AddSingleton<INotificationService, NotificationService>();
 builder.Services.AddValidation();
 
-builder.Services.AddIdentity<IdentityUser, IdentityRole>()
+builder.Services.AddIdentity<IdentityUser, IdentityRole>(options =>
+    {
+        options.User.RequireUniqueEmail = true;
+    }
+)
     .AddEntityFrameworkStores<CargoFlowDbContext>()
     .AddDefaultTokenProviders();
 
@@ -101,20 +105,21 @@ app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.Lifetime.ApplicationStarted.Register(async () =>
+using (var scope = app.Services.CreateScope())
+{
+    var serviceProvider = scope.ServiceProvider;
+    try
     {
-        using var scope = app.Services.CreateScope();
-        var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+        var context = serviceProvider.GetRequiredService<CargoFlowDbContext>();
+        await context.Database.MigrateAsync();
 
-        string[] roles = ["Customer", "Company"];
-
-        foreach (var role in roles)
-        {
-            if (!await roleManager.RoleExistsAsync(role))
-            {
-                await roleManager.CreateAsync(new IdentityRole(role));
-            }
-        }
-    });
+        await IdentitySeeder.SeedRolesAsync(serviceProvider);
+    }
+    catch (Exception ex)
+    {
+        var logger = serviceProvider.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "An error occur while migrating database or seeding roles in the database");
+    }
+}
 
 app.Run();
