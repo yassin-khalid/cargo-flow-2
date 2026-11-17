@@ -119,6 +119,7 @@ using (var scope = app.Services.CreateScope())
     {
         var logger = serviceProvider.GetRequiredService<ILogger<Program>>();
         logger.LogError(ex, "An error occur while migrating database or seeding roles in the database");
+        throw;
     }
 }
 

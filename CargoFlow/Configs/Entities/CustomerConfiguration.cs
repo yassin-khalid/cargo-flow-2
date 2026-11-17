@@ -10,12 +10,6 @@ public class CustomerConfiguration : IEntityTypeConfiguration<Customer>
     {
         builder.Property(c => c.Name).HasMaxLength(25).IsRequired();
         builder.HasIndex(c => c.NationalId).IsUnique();
-        builder.HasIndex(c => c.CustomerUserId).IsUnique();
-
-        builder.HasOne(c => c.CustomerUser)
-            .WithMany()
-            .HasForeignKey(c => c.CustomerUserId)
-            .IsRequired(false)
-            .OnDelete(DeleteBehavior.Cascade);
+        builder.HasIndex(c => c.UserId).IsUnique();
     }
 }

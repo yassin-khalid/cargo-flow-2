@@ -70,7 +70,7 @@ public static class AuthEndpoints
             {
                 Name = dto.Name,
                 NationalId = dto.NationalId,
-                CustomerUserId = user.Id
+                UserId = user.Id
             };
 
             db.Customers.Add(customer);
@@ -142,7 +142,7 @@ public static class AuthEndpoints
             {
                 Email = dto.Email,
                 Name = dto.Name,
-                CompanyUserId = user.Id,
+                UserId = user.Id,
                 TaxID = dto.TaxID
             };
 
@@ -195,23 +195,39 @@ public static class AuthEndpoints
             );
         }
 
-        var isCompany = await db.Companies.AnyAsync(c => c.CompanyUserId == user.Id);
-        var id = 0;
-        if (isCompany)
+        var profile = await db.Set<UserProfile>().FirstAsync(p => p.UserId == user.Id);
+        if (profile is null)
         {
-            id = db.Companies.Single(c => c.CompanyUserId == user.Id).Id;
+            return TypedResults.Problem(
+                statusCode: StatusCodes.Status400BadRequest,
+                title: "User Validation Issue",
+                detail: "No profile associated with this user"
+            );
         }
-        else
+        var id = profile.Id;
+
+        var userType = profile switch
         {
-            id = db.Customers.Single(c => c.CustomerUserId == user.Id).Id;
+            Customer customer => "Customer",
+            Company company => "Company",
+            _ => null
+        };
+
+        if (userType is null)
+        {
+            return TypedResults.Problem(
+                statusCode: StatusCodes.Status400BadRequest,
+                title: "User Validation Issue",
+                detail: "No profile associated with this user"
+            );
         }
 
-        var idClaim = isCompany ? new Claim("company_id", id.ToString()) : new Claim("customer_id", id.ToString());
+        var idClaim = userType == "Company" ? new Claim("company_id", id.ToString()) : new Claim("customer_id", id.ToString());
 
         List<Claim> claims = [
             new(ClaimTypes.Email, user.Email!),
             new(ClaimTypes.NameIdentifier, user.Id),
-            new ("user_type", isCompany ? "Company" : "Customer"),
+            new ("user_type", userType),
             idClaim
         ];
 

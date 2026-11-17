@@ -48,79 +48,6 @@ namespace CargoFlow.Migrations
                         });
                 });
 
-            modelBuilder.Entity("CargoFlow.Domain.Company", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("CompanyUserId")
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<string>("Email")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(40)
-                        .HasColumnType("nvarchar(40)");
-
-                    b.Property<string>("TaxID")
-                        .IsRequired()
-                        .HasMaxLength(15)
-                        .HasColumnType("nvarchar(15)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CompanyUserId")
-                        .IsUnique()
-                        .HasFilter("[CompanyUserId] IS NOT NULL");
-
-                    b.HasIndex("Name")
-                        .IsUnique();
-
-                    b.HasIndex("TaxID")
-                        .IsUnique();
-
-                    b.ToTable("Companies");
-                });
-
-            modelBuilder.Entity("CargoFlow.Domain.Customer", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("CustomerUserId")
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(25)
-                        .HasColumnType("nvarchar(25)");
-
-                    b.Property<string>("NationalId")
-                        .IsRequired()
-                        .HasMaxLength(10)
-                        .HasColumnType("nvarchar(10)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CustomerUserId")
-                        .IsUnique()
-                        .HasFilter("[CustomerUserId] IS NOT NULL");
-
-                    b.HasIndex("NationalId")
-                        .IsUnique();
-
-                    b.ToTable("Customers");
-                });
-
             modelBuilder.Entity("CargoFlow.Domain.Driver", b =>
                 {
                     b.Property<int>("Id")
@@ -456,6 +383,35 @@ namespace CargoFlow.Migrations
                     b.ToTable("ShipmentStatusHistories");
                 });
 
+            modelBuilder.Entity("CargoFlow.Domain.UserProfile", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ProfileType")
+                        .IsRequired()
+                        .HasMaxLength(13)
+                        .HasColumnType("nvarchar(13)");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
+
+                    b.ToTable("UserProfile");
+
+                    b.HasDiscriminator<string>("ProfileType").HasValue("UserProfile");
+
+                    b.UseTphMappingStrategy();
+                });
+
             modelBuilder.Entity("CargoFlow.Domain.Vehicle", b =>
                 {
                     b.Property<int>("Id")
@@ -608,6 +564,11 @@ namespace CargoFlow.Migrations
                         .IsConcurrencyToken()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("Discriminator")
+                        .IsRequired()
+                        .HasMaxLength(21)
+                        .HasColumnType("nvarchar(21)");
+
                     b.Property<string>("Email")
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
@@ -659,6 +620,10 @@ namespace CargoFlow.Migrations
                         .HasFilter("[NormalizedUserName] IS NOT NULL");
 
                     b.ToTable("AspNetUsers", (string)null);
+
+                    b.HasDiscriminator<string>("Discriminator").HasValue("IdentityUser");
+
+                    b.UseTphMappingStrategy();
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<string>", b =>
@@ -744,22 +709,65 @@ namespace CargoFlow.Migrations
 
             modelBuilder.Entity("CargoFlow.Domain.Company", b =>
                 {
-                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", "CompanyUser")
-                        .WithMany()
-                        .HasForeignKey("CompanyUserId")
-                        .OnDelete(DeleteBehavior.Cascade);
+                    b.HasBaseType("CargoFlow.Domain.UserProfile");
 
-                    b.Navigation("CompanyUser");
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("TaxID")
+                        .IsRequired()
+                        .HasMaxLength(15)
+                        .HasColumnType("nvarchar(15)");
+
+                    b.HasIndex("Name")
+                        .IsUnique()
+                        .HasFilter("[Name] IS NOT NULL");
+
+                    b.HasIndex("TaxID")
+                        .IsUnique()
+                        .HasFilter("[TaxID] IS NOT NULL");
+
+                    b.ToTable("UserProfile", t =>
+                        {
+                            t.Property("Name")
+                                .HasColumnName("Company_Name");
+                        });
+
+                    b.HasDiscriminator().HasValue("Company");
                 });
 
             modelBuilder.Entity("CargoFlow.Domain.Customer", b =>
                 {
-                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", "CustomerUser")
-                        .WithMany()
-                        .HasForeignKey("CustomerUserId")
-                        .OnDelete(DeleteBehavior.Cascade);
+                    b.HasBaseType("CargoFlow.Domain.UserProfile");
 
-                    b.Navigation("CustomerUser");
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(25)
+                        .HasColumnType("nvarchar(25)");
+
+                    b.Property<string>("NationalId")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.HasIndex("NationalId")
+                        .IsUnique()
+                        .HasFilter("[NationalId] IS NOT NULL");
+
+                    b.HasDiscriminator().HasValue("Customer");
+                });
+
+            modelBuilder.Entity("CargoFlow.Domain.ApplicationUser", b =>
+                {
+                    b.HasBaseType("Microsoft.AspNetCore.Identity.IdentityUser");
+
+                    b.HasDiscriminator().HasValue("ApplicationUser");
                 });
 
             modelBuilder.Entity("CargoFlow.Domain.Driver", b =>
@@ -873,6 +881,17 @@ namespace CargoFlow.Migrations
                     b.Navigation("ShipmentStatus");
                 });
 
+            modelBuilder.Entity("CargoFlow.Domain.UserProfile", b =>
+                {
+                    b.HasOne("CargoFlow.Domain.ApplicationUser", "User")
+                        .WithOne("UserProfile")
+                        .HasForeignKey("CargoFlow.Domain.UserProfile", "UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("CargoFlow.Domain.Vehicle", b =>
                 {
                     b.HasOne("CargoFlow.Domain.Company", "Company")
@@ -950,20 +969,6 @@ namespace CargoFlow.Migrations
                     b.Navigation("PickupShipments");
                 });
 
-            modelBuilder.Entity("CargoFlow.Domain.Company", b =>
-                {
-                    b.Navigation("Drivers");
-
-                    b.Navigation("Offers");
-
-                    b.Navigation("Vehicles");
-                });
-
-            modelBuilder.Entity("CargoFlow.Domain.Customer", b =>
-                {
-                    b.Navigation("Shipments");
-                });
-
             modelBuilder.Entity("CargoFlow.Domain.OfferState", b =>
                 {
                     b.Navigation("Offers");
@@ -990,6 +995,25 @@ namespace CargoFlow.Migrations
                     b.Navigation("Shipments");
 
                     b.Navigation("Vehicles");
+                });
+
+            modelBuilder.Entity("CargoFlow.Domain.Company", b =>
+                {
+                    b.Navigation("Drivers");
+
+                    b.Navigation("Offers");
+
+                    b.Navigation("Vehicles");
+                });
+
+            modelBuilder.Entity("CargoFlow.Domain.Customer", b =>
+                {
+                    b.Navigation("Shipments");
+                });
+
+            modelBuilder.Entity("CargoFlow.Domain.ApplicationUser", b =>
+                {
+                    b.Navigation("UserProfile");
                 });
 #pragma warning restore 612, 618
         }

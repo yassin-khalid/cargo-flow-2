@@ -24,6 +24,7 @@ public class CargoFlowDbContext(DbContextOptions<CargoFlowDbContext> options) : 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
         modelBuilder.ApplyConfiguration(new AddressConfiguration());
         modelBuilder.ApplyConfiguration(new CompanyConfiguration());
         modelBuilder.ApplyConfiguration(new CustomerConfiguration());
@@ -36,5 +37,6 @@ public class CargoFlowDbContext(DbContextOptions<CargoFlowDbContext> options) : 
         modelBuilder.ApplyConfiguration(new VehicleConfiguration());
         modelBuilder.ApplyConfiguration(new WeightTypeConfiguration());
         modelBuilder.ApplyConfiguration(new NotificationConfiguration());
+        modelBuilder.ApplyConfiguration(new UserProfileConfiguration());
     }
 }
