@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using CargoFlow.Data;
+using CargoFlow.Domain;
 using CargoFlow.Endpoints;
 using CargoFlow.Helpers;
 using CargoFlow.Services;
@@ -24,7 +25,7 @@ builder.Services.AddHostedService<OfferExpirationWorker>();
 builder.Services.AddSingleton<INotificationService, NotificationService>();
 builder.Services.AddValidation();
 
-builder.Services.AddIdentity<IdentityUser, IdentityRole>(options =>
+builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
     {
         options.User.RequireUniqueEmail = true;
     }
@@ -56,11 +57,6 @@ builder.Services.AddAuthentication(options =>
     });
 
 builder.Services.AddAuthorization();
-
-// if (builder.Environment.IsDevelopment())
-// {
-//     builder.Configuration.AddUserSecrets<Program>();
-// }
 
 var app = builder.Build();
 

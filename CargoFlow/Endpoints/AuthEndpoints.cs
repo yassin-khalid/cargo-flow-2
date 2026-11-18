@@ -22,7 +22,7 @@ public static class AuthEndpoints
     }
 
     private static async Task<Results<ProblemHttpResult, Ok<RegisterResponseDto>>> RegisterCustomer(
-        UserManager<IdentityUser> userManager,
+        UserManager<ApplicationUser> userManager,
         RegisterCustomerRequestDto dto,
         CargoFlowDbContext db
     )
@@ -31,7 +31,7 @@ public static class AuthEndpoints
         try
         {
 
-            var user = new IdentityUser()
+            var user = new ApplicationUser()
             {
                 Email = dto.Email,
                 UserName = dto.Email
@@ -92,7 +92,7 @@ public static class AuthEndpoints
     }
 
     private static async Task<Results<ProblemHttpResult, Ok<RegisterResponseDto>>> RegisterCompany(
-        UserManager<IdentityUser> userManager,
+        UserManager<ApplicationUser> userManager,
         CargoFlowDbContext db,
         RegisterCompanyRequestDto dto
     )
@@ -101,7 +101,7 @@ public static class AuthEndpoints
         try
         {
 
-            var user = new IdentityUser()
+            var user = new ApplicationUser()
             {
                 Email = dto.Email,
                 UserName = dto.Email
@@ -167,8 +167,8 @@ public static class AuthEndpoints
     }
 
     private static async Task<Results<ProblemHttpResult, Ok<LoginResponseDto>>> Login(
-        UserManager<IdentityUser> userManager,
-        SignInManager<IdentityUser> signInManager,
+        UserManager<ApplicationUser> userManager,
+        SignInManager<ApplicationUser> signInManager,
         IConfiguration configuration,
         CargoFlowDbContext db,
         LoginRequestDto dto
@@ -195,7 +195,7 @@ public static class AuthEndpoints
             );
         }
 
-        var profile = await db.Set<UserProfile>().FirstAsync(p => p.UserId == user.Id);
+        var profile = await db.Set<UserProfile>().FirstOrDefaultAsync(p => p.UserId == user.Id);
         if (profile is null)
         {
             return TypedResults.Problem(

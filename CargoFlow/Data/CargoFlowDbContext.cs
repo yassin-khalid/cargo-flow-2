@@ -1,12 +1,11 @@
 using CargoFlow.Configs.Entities;
 using CargoFlow.Domain;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace CargoFlow.Data;
 
-public class CargoFlowDbContext(DbContextOptions<CargoFlowDbContext> options) : IdentityDbContext<IdentityUser>(options)
+public class CargoFlowDbContext(DbContextOptions<CargoFlowDbContext> options) : IdentityDbContext<ApplicationUser>(options)
 {
     public DbSet<Address> Addresses => Set<Address>();
     public DbSet<Company> Companies => Set<Company>();
