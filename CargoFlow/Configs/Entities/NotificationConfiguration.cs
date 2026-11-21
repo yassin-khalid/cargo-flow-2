@@ -21,16 +21,18 @@ public class NotificationConfiguration : IEntityTypeConfiguration<Notification>
         .HasMaxLength(50)
         .IsRequired();
 
-        builder.Property(n => n.RecipientType)
-        .HasConversion<string>()
-        .HasMaxLength(50)
-        .IsRequired();
-
         builder.HasOne(n => n.Shipment)
             .WithMany(s => s.Notifications)
             .HasForeignKey(n => n.ShipmentId)
-            .OnDelete(DeleteBehavior.NoAction);
+            .OnDelete(DeleteBehavior.Cascade);
 
-        builder.HasIndex(n => new { n.RecipientId, n.RecipientType, n.CreatedAt });
+        builder
+            .HasOne(n => n.Recipient)
+            .WithMany(p => p.Notifications)
+            .HasForeignKey(n => n.RecipientId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasIndex(n => new { n.RecipientId, n.ReadAt });
+        builder.HasIndex(n => n.CreatedAt);
     }
 }

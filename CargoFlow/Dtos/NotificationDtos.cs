@@ -7,10 +7,6 @@ namespace CargoFlow.Dtos;
 public record NotificationDto(
     [property: JsonPropertyName("id")]
     int Id,
-    [property: JsonPropertyName("recipient_type")]
-    string RecipientType,
-    [property: JsonPropertyName("recipient_id")]
-    int RecipientId,
     [property: JsonPropertyName("shipment_id")]
     int ShipmentId,
     [property: JsonPropertyName("notification_type")]
@@ -36,19 +32,11 @@ public record GetNotificationRequestDto(
     [FromQuery(Name = "is_read")]
     bool? IsRead);
 
-// public record MarkNotificationAsReadRequestDto(
-//     [FromQuery(Name = "recipient_type")]
-//     string RecipientType,
-//     [FromQuery(Name = "recipient_id")]
-//     int RecipientId);
-
 public record MarkNotificationAsReadQuery(
     int RecipientId,
     RecipientType RecipientType);
 
 public record GetNotificationQuery(
-    // RecipientType RecipientType,
-    // int RecipientId,
     int? ShipmentId,
     NotificationType? NotificationType,
     string? Title,

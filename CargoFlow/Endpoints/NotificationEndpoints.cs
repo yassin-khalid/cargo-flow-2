@@ -28,9 +28,9 @@ public static class NotificationEndpoints
         ClaimsPrincipal user
     )
     {
-        var (recipientType, recipientId) = recipientsReferenceData.GetRecipientData(user);
+        var recipientId = recipientsReferenceData.GetRecipientId(user);
 
-        if (recipientType is null || recipientId is null)
+        if (recipientId is null)
         {
             return TypedResults.Problem(
                 statusCode: StatusCodes.Status403Forbidden,
@@ -49,7 +49,7 @@ public static class NotificationEndpoints
 
         var notifications = db.Notifications
             .AsNoTracking()
-            .Where(n => n.RecipientType == recipientType && n.RecipientId == recipientId);
+            .Where(n => n.RecipientId == recipientId);
 
         if (notificationType is not null)
         {
@@ -74,8 +74,6 @@ public static class NotificationEndpoints
 
         notifications = notifications.OrderByDescending(n => n.CreatedAt);
         var result = await notifications.Select(n => new NotificationDto(n.Id,
-            n.RecipientType.ToString(),
-            n.RecipientId,
             n.ShipmentId,
             n.Type.ToString(),
             n.Title,
@@ -93,9 +91,9 @@ public static class NotificationEndpoints
         ClaimsPrincipal user
     )
     {
-        var (recipientType, recipientId) = recipientsReferenceData.GetRecipientData(user);
+        var recipientId = recipientsReferenceData.GetRecipientId(user);
 
-        if (recipientType is null || recipientId is null)
+        if (recipientId is null)
         {
             return TypedResults.Problem(
                 statusCode: StatusCodes.Status403Forbidden,
@@ -105,8 +103,11 @@ public static class NotificationEndpoints
         }
         return TypedResults.Ok(await db.Notifications
             .AsNoTracking()
-            .Where(n => n.ReadAt == null && n.RecipientId == recipientId && n.RecipientType == recipientType)
-            .CountAsync());
+            .Where(n => n.ReadAt == null
+                && n.RecipientId == recipientId
+            )
+            .CountAsync()
+        );
     }
 
     private static async Task<Results<NoContent, ProblemHttpResult>> MarkNotificationAsRead(
@@ -116,9 +117,9 @@ public static class NotificationEndpoints
         ClaimsPrincipal user
     )
     {
-        var (recipientType, recipientId) = recipientsReferenceData.GetRecipientData(user);
+        var recipientId = recipientsReferenceData.GetRecipientId(user);
 
-        if (recipientType is null || recipientId is null)
+        if (recipientId is null)
         {
             return TypedResults.Problem(
                 statusCode: StatusCodes.Status403Forbidden,
@@ -128,7 +129,8 @@ public static class NotificationEndpoints
         }
 
         var notification = await db.Notifications
-        .FirstOrDefaultAsync(n => n.Id == id && n.RecipientId == recipientId && n.RecipientType == recipientType);
+        .FirstOrDefaultAsync(n => n.Id == id
+            && n.RecipientId == recipientId);
         if (notification is null)
         {
             return TypedResults.Problem(
@@ -152,9 +154,9 @@ public static class NotificationEndpoints
         ClaimsPrincipal user
     )
     {
-        var (recipientType, recipientId) = recipientsReferenceData.GetRecipientData(user);
+        var recipientId = recipientsReferenceData.GetRecipientId(user);
 
-        if (recipientType is null || recipientId is null)
+        if (recipientId is null)
         {
             return TypedResults.Problem(
                 statusCode: StatusCodes.Status403Forbidden,
@@ -165,9 +167,11 @@ public static class NotificationEndpoints
 
         var now = DateTime.UtcNow;
         await db.Notifications
-           .Where(n => n.ReadAt == null && n.RecipientId == recipientId && n.RecipientType == recipientType)
+           .Where(n => n.ReadAt == null
+               && n.RecipientId == recipientId)
            .ExecuteUpdateAsync(builder => builder
-               .SetProperty(n => n.ReadAt, now));
+               .SetProperty(n => n.ReadAt, now)
+           );
         return TypedResults.NoContent();
     }
 }

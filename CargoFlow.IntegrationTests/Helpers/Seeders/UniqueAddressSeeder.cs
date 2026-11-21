@@ -1,6 +1,6 @@
 using CargoFlow.Domain;
 
-namespace CargoFlow.IntegrationTests.Helpers;
+namespace CargoFlow.IntegrationTests.Helpers.Seeders;
 
 public static class UniqueAddressSeeder
 {

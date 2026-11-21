@@ -60,7 +60,9 @@ builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
-var group = app.MapGroup("/api");
+var group = app
+    .MapGroup("/api")
+    .RequireAuthorization();
 
 group
     .MapGroup("/weight-types")
@@ -76,11 +78,11 @@ group
 
 group
     .MapGroup("/notifications")
-    .MapNotificationsEndpoints()
-    .RequireAuthorization();
+    .MapNotificationsEndpoints();
 
 group.MapGroup("/auth")
-    .MapAuthEndpoints();
+    .MapAuthEndpoints()
+    .AllowAnonymous();
 
 
 app.UseExceptionHandler(errorApp => errorApp.Run(async context =>

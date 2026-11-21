@@ -48,6 +48,71 @@ namespace CargoFlow.Migrations
                         });
                 });
 
+            modelBuilder.Entity("CargoFlow.Domain.ApplicationUser", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("AccessFailedCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ConcurrencyStamp")
+                        .IsConcurrencyToken()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<bool>("EmailConfirmed")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("LockoutEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTimeOffset?>("LockoutEnd")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("NormalizedEmail")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<string>("NormalizedUserName")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<string>("PasswordHash")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PhoneNumber")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("PhoneNumberConfirmed")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("SecurityStamp")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("TwoFactorEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("UserName")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NormalizedEmail")
+                        .HasDatabaseName("EmailIndex");
+
+                    b.HasIndex("NormalizedUserName")
+                        .IsUnique()
+                        .HasDatabaseName("UserNameIndex")
+                        .HasFilter("[NormalizedUserName] IS NOT NULL");
+
+                    b.ToTable("AspNetUsers", (string)null);
+                });
+
             modelBuilder.Entity("CargoFlow.Domain.Driver", b =>
                 {
                     b.Property<int>("Id")
@@ -104,11 +169,6 @@ namespace CargoFlow.Migrations
                     b.Property<int>("RecipientId")
                         .HasColumnType("int");
 
-                    b.Property<string>("RecipientType")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
                     b.Property<int>("ShipmentId")
                         .HasColumnType("int");
 
@@ -124,9 +184,11 @@ namespace CargoFlow.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CreatedAt");
+
                     b.HasIndex("ShipmentId");
 
-                    b.HasIndex("RecipientId", "RecipientType", "CreatedAt");
+                    b.HasIndex("RecipientId", "ReadAt");
 
                     b.ToTable("Notifications");
                 });
@@ -491,12 +553,12 @@ namespace CargoFlow.Migrations
                         new
                         {
                             Id = 1,
-                            Name = "Kilogram (kg)"
+                            Name = "Kilogram"
                         },
                         new
                         {
                             Id = 2,
-                            Name = "Ton (t)"
+                            Name = "Ton"
                         });
                 });
 
@@ -550,80 +612,6 @@ namespace CargoFlow.Migrations
                     b.HasIndex("RoleId");
 
                     b.ToTable("AspNetRoleClaims", (string)null);
-                });
-
-            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUser", b =>
-                {
-                    b.Property<string>("Id")
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<int>("AccessFailedCount")
-                        .HasColumnType("int");
-
-                    b.Property<string>("ConcurrencyStamp")
-                        .IsConcurrencyToken()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Discriminator")
-                        .IsRequired()
-                        .HasMaxLength(21)
-                        .HasColumnType("nvarchar(21)");
-
-                    b.Property<string>("Email")
-                        .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
-
-                    b.Property<bool>("EmailConfirmed")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("LockoutEnabled")
-                        .HasColumnType("bit");
-
-                    b.Property<DateTimeOffset?>("LockoutEnd")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<string>("NormalizedEmail")
-                        .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
-
-                    b.Property<string>("NormalizedUserName")
-                        .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
-
-                    b.Property<string>("PasswordHash")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("PhoneNumber")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<bool>("PhoneNumberConfirmed")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("SecurityStamp")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<bool>("TwoFactorEnabled")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("UserName")
-                        .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("NormalizedEmail")
-                        .HasDatabaseName("EmailIndex");
-
-                    b.HasIndex("NormalizedUserName")
-                        .IsUnique()
-                        .HasDatabaseName("UserNameIndex")
-                        .HasFilter("[NormalizedUserName] IS NOT NULL");
-
-                    b.ToTable("AspNetUsers", (string)null);
-
-                    b.HasDiscriminator<string>("Discriminator").HasValue("IdentityUser");
-
-                    b.UseTphMappingStrategy();
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<string>", b =>
@@ -727,7 +715,7 @@ namespace CargoFlow.Migrations
 
                     b.HasIndex("Name")
                         .IsUnique()
-                        .HasFilter("[Name] IS NOT NULL");
+                        .HasFilter("[Company_Name] IS NOT NULL");
 
                     b.HasIndex("TaxID")
                         .IsUnique()
@@ -756,18 +744,15 @@ namespace CargoFlow.Migrations
                         .HasMaxLength(10)
                         .HasColumnType("nvarchar(10)");
 
+                    b.HasIndex("Name")
+                        .IsUnique()
+                        .HasFilter("[Name] IS NOT NULL");
+
                     b.HasIndex("NationalId")
                         .IsUnique()
                         .HasFilter("[NationalId] IS NOT NULL");
 
                     b.HasDiscriminator().HasValue("Customer");
-                });
-
-            modelBuilder.Entity("CargoFlow.Domain.ApplicationUser", b =>
-                {
-                    b.HasBaseType("Microsoft.AspNetCore.Identity.IdentityUser");
-
-                    b.HasDiscriminator().HasValue("ApplicationUser");
                 });
 
             modelBuilder.Entity("CargoFlow.Domain.Driver", b =>
@@ -783,11 +768,19 @@ namespace CargoFlow.Migrations
 
             modelBuilder.Entity("CargoFlow.Domain.Notification", b =>
                 {
+                    b.HasOne("CargoFlow.Domain.UserProfile", "Recipient")
+                        .WithMany("Notifications")
+                        .HasForeignKey("RecipientId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("CargoFlow.Domain.Shipment", "Shipment")
                         .WithMany("Notifications")
                         .HasForeignKey("ShipmentId")
-                        .OnDelete(DeleteBehavior.NoAction)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("Recipient");
 
                     b.Navigation("Shipment");
                 });
@@ -922,7 +915,7 @@ namespace CargoFlow.Migrations
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<string>", b =>
                 {
-                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", null)
+                    b.HasOne("CargoFlow.Domain.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -931,7 +924,7 @@ namespace CargoFlow.Migrations
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<string>", b =>
                 {
-                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", null)
+                    b.HasOne("CargoFlow.Domain.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -946,7 +939,7 @@ namespace CargoFlow.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", null)
+                    b.HasOne("CargoFlow.Domain.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -955,7 +948,7 @@ namespace CargoFlow.Migrations
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<string>", b =>
                 {
-                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", null)
+                    b.HasOne("CargoFlow.Domain.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -967,6 +960,11 @@ namespace CargoFlow.Migrations
                     b.Navigation("DestinationShipments");
 
                     b.Navigation("PickupShipments");
+                });
+
+            modelBuilder.Entity("CargoFlow.Domain.ApplicationUser", b =>
+                {
+                    b.Navigation("UserProfile");
                 });
 
             modelBuilder.Entity("CargoFlow.Domain.OfferState", b =>
@@ -990,6 +988,11 @@ namespace CargoFlow.Migrations
                     b.Navigation("Shipments");
                 });
 
+            modelBuilder.Entity("CargoFlow.Domain.UserProfile", b =>
+                {
+                    b.Navigation("Notifications");
+                });
+
             modelBuilder.Entity("CargoFlow.Domain.WeightType", b =>
                 {
                     b.Navigation("Shipments");
@@ -1009,11 +1012,6 @@ namespace CargoFlow.Migrations
             modelBuilder.Entity("CargoFlow.Domain.Customer", b =>
                 {
                     b.Navigation("Shipments");
-                });
-
-            modelBuilder.Entity("CargoFlow.Domain.ApplicationUser", b =>
-                {
-                    b.Navigation("UserProfile");
                 });
 #pragma warning restore 612, 618
         }

@@ -6,10 +6,13 @@ namespace CargoFlow.Domain;
 public class Notification
 {
     public int Id { get; set; }
-    public RecipientType RecipientType { get; set; }
+
     public int RecipientId { get; set; }
+    public UserProfile Recipient { get; set; }
+
     public int ShipmentId { get; set; }
     public Shipment Shipment { get; set; }
+
     public NotificationType Type { get; set; }
     [Required]
     [MaxLength(25, ErrorMessage = "Title must have 25 characters maximum")]
