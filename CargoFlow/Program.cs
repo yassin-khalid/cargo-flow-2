@@ -14,6 +14,11 @@ using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder();
 builder.Configuration.AddUserSecrets<Program>(optional: true);
+builder.Services
+    .AddOptions<FileStorageOptions>()
+    .Bind(builder.Configuration.GetSection(FileStorageOptions.SectionName))
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
 builder.Services.AddDbContext<CargoFlowDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("CargoFlow")));
 builder.Services.ConfigureHttpJsonOptions(options =>

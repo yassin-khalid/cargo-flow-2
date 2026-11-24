@@ -7,8 +7,18 @@ public sealed class FileStorageOptions
 {
     public const string SectionName = "FileStorage";
     public string RootPath { get; init; } = "Uploads";
+    public string ShipmentDocumentSubDirectory { get; init; } = "ShipmentDocuments";
     public long MaxFileSizeBytes { get; init; } = 10 * 1024 * 1024; // 10MB
-    public HashSet<string> AllowedExtensions = [".jpg", ".jpeg", ".png", ".pdf", ".csv", ".xlsx", ".webp"];
+    public Dictionary<string, string[]> AllowedExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        [".jpg"] = ["image/jpg", "image/jpeg"],
+        [".jpeg"] = ["image/jpeg"],
+        [".webp"] = ["image/webp"],
+        [".png"] = ["image/png"],
+        [".pdf"] = ["applicaion/pdf"],
+        [".csv"] = ["application/csv", "text/csv", "text/plain"],
+        [".xlsx"] = ["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"]
+    };
 }
 
 public sealed record StoredFileStream(Stream Stream, string FileDownloadName, string ContentType);
@@ -19,16 +29,14 @@ public interface IFileStorageService
         IFormFile file,
         int shipmentId,
         int uploaderId,
-        string subDirectory,
         CancellationToken cancellationToken = default
     );
 
     Task<StoredFileStream> OpenShipmentDocumentAsync(
-        ShipmentDocument shipmentDocument,
-        string subDirectory
+        ShipmentDocument shipmentDocument
     );
 
-    void DeleteShipmentDocument(ShipmentDocument shipmentDocument, string subDirectory);
+    void DeleteShipmentDocument(ShipmentDocument shipmentDocument);
 }
 
 public class FileStorageService(
@@ -43,7 +51,6 @@ public class FileStorageService(
         IFormFile file,
         int shipmentId,
         int uploaderId,
-        string subDirectory,
         CancellationToken cancellationToken = default
     )
     {
@@ -62,13 +69,23 @@ public class FileStorageService(
         var originalFileName = file.FileName;
         var extension = Path.GetExtension(originalFileName);
 
-        if (string.IsNullOrWhiteSpace(extension) || !_options.AllowedExtensions.Contains(extension))
+        if (string.IsNullOrWhiteSpace(extension)
+            || !_options.AllowedExtensions.TryGetValue(extension, out var allowedMimeTypes)
+        )
         {
             throw new InvalidOperationException($"File type {extension} is not allowed");
         }
 
+        var contentType = file.ContentType?.Split(";", 2)[0].Trim();
+        if (string.IsNullOrWhiteSpace(contentType)
+            || !allowedMimeTypes.Contains(contentType, StringComparer.OrdinalIgnoreCase)
+        )
+        {
+            throw new InvalidOperationException($"Content type '{contentType}' does not match allowed types for '{extension}'");
+        }
+
         var rootPath = Path.GetFullPath(Path.Combine(env.ContentRootPath, _options.RootPath));
-        var safeSubDirectory = SanitizeRelativePath(subDirectory);
+        var safeSubDirectory = SanitizeRelativePath(_options.ShipmentDocumentSubDirectory);
         var targetFolder = Path.GetFullPath(Path.Combine(rootPath, safeSubDirectory));
 
         var utcNow = timeProvider.GetUtcNow();
@@ -151,15 +168,14 @@ public class FileStorageService(
     }
 
     public async Task<StoredFileStream> OpenShipmentDocumentAsync(
-        ShipmentDocument shipmentDocument,
-        string subDirectory
+        ShipmentDocument shipmentDocument
     )
     {
         ArgumentNullException.ThrowIfNull(shipmentDocument);
 
         var baseRoot = Path.GetFullPath(Path.Combine(env.ContentRootPath, _options.RootPath));
         var normalizedKey = shipmentDocument.StorageKey.Replace('/', Path.DirectorySeparatorChar);
-        var safeSubDirectory = SanitizeRelativePath(subDirectory);
+        var safeSubDirectory = SanitizeRelativePath(_options.ShipmentDocumentSubDirectory);
         var targetFolder = Path.GetFullPath(Path.Combine(baseRoot, safeSubDirectory));
         var fullPath = Path.GetFullPath(Path.Combine(targetFolder, normalizedKey));
 
@@ -178,7 +194,7 @@ public class FileStorageService(
             fullPath,
             FileMode.Open,
             FileAccess.Read,
-            FileShare.None,
+            FileShare.Read,
             bufferSize: 81920,
             useAsync: true
         );
@@ -189,10 +205,10 @@ public class FileStorageService(
 
     }
 
-    public void DeleteShipmentDocument(ShipmentDocument shipmentDocument, string subDirectory)
+    public void DeleteShipmentDocument(ShipmentDocument shipmentDocument)
     {
         var baseRoot = Path.GetFullPath(Path.Combine(env.ContentRootPath, _options.RootPath));
-        var safeSubDirectory = SanitizeRelativePath(subDirectory);
+        var safeSubDirectory = SanitizeRelativePath(_options.ShipmentDocumentSubDirectory);
         var targetFolder = Path.GetFullPath(Path.Combine(baseRoot, safeSubDirectory));
 
         EnsureInsideRoot(targetFolder, baseRoot, nameof(shipmentDocument.StorageKey));
@@ -205,6 +221,13 @@ public class FileStorageService(
             throw new Exception($"shipment #{shipmentDocument.ShipmentId} document #{shipmentDocument.Id} is no longer exists");
         }
 
-        TryDeleteFile(fullPath);
+        try
+        {
+            File.Delete(fullPath);
+        }
+        catch
+        {
+            throw new Exception($"deleting shipment #{shipmentDocument.ShipmentId} document #{shipmentDocument.Id} has failed");
+        }
     }
 }

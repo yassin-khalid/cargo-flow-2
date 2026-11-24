@@ -23,7 +23,7 @@ public static class ShipmentDocumentEndpoints
         return group;
     }
 
-    private static async Task<Results<Ok<List<ShipmentDocument>>, ProblemHttpResult>> UploadMultipleDocuments(
+    private static async Task<Results<Ok<List<ShipmentDocumentDto>>, ProblemHttpResult>> UploadMultipleDocuments(
         int id,
         CargoFlowDbContext db,
         [FromForm] IFormFileCollection files,
@@ -57,23 +57,72 @@ public static class ShipmentDocumentEndpoints
         if (shipment.CustomerId != uploaderId)
         {
             return TypedResults.Problem(
-                statusCode: StatusCodes.Status401Unauthorized,
+                statusCode: StatusCodes.Status403Forbidden,
                 title: "Unauthorized Access",
-                detail: $"You don't authorized to access shipment #{id}"
+                detail: $"You're not authorized to access shipment #{id}"
             );
         }
 
-        var documentTasks = files
-            .Where(file => file.Length > 0)
-            .Select(file => fileStorageService
-                .UploadShipmentDocumentAsync(file, id, uploaderId, "ShipmentDocuments")
+        var isAllEmpty = files.All(f => f.Length == 0);
+        if (files.Count == 0)
+        {
+            return TypedResults.Problem(
+                statusCode: StatusCodes.Status400BadRequest,
+                title: "Empty files",
+                detail: "Please upload at lease one file"
             );
+        }
 
-        var shipmentDocuments = await Task.WhenAll(documentTasks);
+        var validFiles = files.Where(f => f.Length > 0).ToList();
+        var uploadedDocuments = new List<ShipmentDocument>(validFiles.Count);
 
-        db.ShipmentDocuments.AddRange(shipmentDocuments);
-        await db.SaveChangesAsync(cancellationToken);
-        return TypedResults.Ok(shipmentDocuments.ToList());
+        try
+        {
+            foreach (var file in validFiles)
+            {
+                var document = await fileStorageService.UploadShipmentDocumentAsync(
+                    file,
+                    id,
+                    uploaderId,
+                    cancellationToken
+                );
+                uploadedDocuments.Add(document);
+            }
+            db.ShipmentDocuments.AddRange(uploadedDocuments);
+            await db.SaveChangesAsync(cancellationToken);
+            return TypedResults.Ok(uploadedDocuments
+                .Select(d => new ShipmentDocumentDto(
+                    d.Id,
+                    d.ShipmentId,
+                    d.OriginalFileName,
+                    d.StorageKey,
+                    d.ContentType,
+                    d.FileSize,
+                    d.UploadedById,
+                    d.UploadedAt
+                ))
+                .ToList()
+            );
+        }
+        catch
+        {
+            foreach (var document in uploadedDocuments)
+            {
+                try
+                {
+                    fileStorageService.DeleteShipmentDocument(document);
+                }
+                catch
+                {
+
+                }
+            }
+            return TypedResults.Problem(
+                statusCode: StatusCodes.Status500InternalServerError,
+                title: "Error while trying to upload shipment documents",
+                detail: "An unexpected error occured while saving shipment documents"
+            );
+        }
     }
 
     private static async Task<Results<Ok<List<ShipmentDocumentDto>>, ProblemHttpResult>> GetShipmentDocuments(
@@ -111,7 +160,7 @@ public static class ShipmentDocumentEndpoints
         if (shipment.CustomerId != uploaderId)
         {
             return TypedResults.Problem(
-                statusCode: StatusCodes.Status401Unauthorized,
+                statusCode: StatusCodes.Status403Forbidden,
                 title: "Unauthorized Access",
                 detail: $"You're not authorized to access shipment #{id}"
             );
@@ -165,6 +214,15 @@ public static class ShipmentDocumentEndpoints
             );
         }
 
+        if (shipment.CustomerId != uploaderId)
+        {
+            return TypedResults.Problem(
+                statusCode: StatusCodes.Status403Forbidden,
+                title: "Unauthorized Access",
+                detail: $"You're not authorized to access shipment #{id}"
+            );
+        }
+
         var shipmentDocument = shipment.Documents
             .FirstOrDefault(d => d.Id == documentId);
 
@@ -178,7 +236,7 @@ public static class ShipmentDocumentEndpoints
         }
 
         var storedFile = await fileStorageService
-            .OpenShipmentDocumentAsync(shipmentDocument, "ShipmentDocuments");
+            .OpenShipmentDocumentAsync(shipmentDocument);
 
         return TypedResults.File(
             storedFile.Stream,
@@ -222,6 +280,15 @@ public static class ShipmentDocumentEndpoints
             );
         }
 
+        if (shipment.CustomerId != uploaderId)
+        {
+            return TypedResults.Problem(
+                statusCode: StatusCodes.Status403Forbidden,
+                title: "Unauthorized Access",
+                detail: $"You're not authorized to access shipment #{id}"
+            );
+        }
+
         var document = shipment.Documents.FirstOrDefault(d => d.Id == documentId);
         if (document is null)
         {
@@ -234,18 +301,18 @@ public static class ShipmentDocumentEndpoints
 
         try
         {
-            fileStorageService.DeleteShipmentDocument(document, "ShipmentDocuments");
+            fileStorageService.DeleteShipmentDocument(document);
             db.ShipmentDocuments.Remove(document);
             await db.SaveChangesAsync(cancellationToken);
 
             return TypedResults.NoContent();
         }
-        catch (Exception ex)
+        catch
         {
             return TypedResults.Problem(
                 statusCode: StatusCodes.Status500InternalServerError,
                 title: "Unable to delete file",
-                detail: ex.Message
+                detail: "An unexpected error happened when trying to delete the document"
             );
         }
 
