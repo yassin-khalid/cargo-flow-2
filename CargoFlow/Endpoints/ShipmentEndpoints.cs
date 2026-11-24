@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using CargoFlow.Data;
 using CargoFlow.Domain;
 using CargoFlow.Domain.Enums;
@@ -112,10 +113,23 @@ public static class ShipmentEndpoints
         };
     }
 
-    private static async Task<Results<CreatedAtRoute<ShipmentDto>, ValidationProblem, ProblemHttpResult>> CreateShipment(CargoFlowDbContext db, CreateShipmentRequestDto dto, IReferenceData referenceData)
+    private static async Task<Results<CreatedAtRoute<ShipmentDto>, ValidationProblem, ProblemHttpResult>> CreateShipment(
+            CargoFlowDbContext db,
+            CreateShipmentRequestDto dto,
+            IReferenceData referenceData,
+            IRecipientsReferenceData recipientsReferenceData,
+            ClaimsPrincipal user
+    )
     {
-        var isCustomerExists = await db.Customers.AnyAsync(c => c.Id == dto.CustomerId);
-        if (!isCustomerExists)
+        // var isCustomerExists = await db.Customers.AnyAsync(c => c.Id == dto.CustomerId);
+        // if (!isCustomerExists)
+        // {
+        //     return HttpResultProblems.ValidationProblem("customer_id", ["customer_id not exists"]);
+        // }
+
+        var customerId = recipientsReferenceData.GetRecipientId(user);
+
+        if (customerId == null)
         {
             return HttpResultProblems.ValidationProblem("customer_id", ["customer_id not exists"]);
         }
@@ -142,7 +156,7 @@ public static class ShipmentEndpoints
 
         var shipment = new Shipment()
         {
-            CustomerId = dto.CustomerId,
+            CustomerId = (int)customerId,
             DestinationId = dto.DestinationId,
             PickupId = dto.PickupId,
             WeightTypeId = dto.WeightTypeId,

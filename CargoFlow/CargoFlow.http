@@ -24,13 +24,13 @@ Accept: application/json
 
 POST {{CargoFlow_HostAddress}}/api/shipments
 Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6InRlc3RAY3VzdG9tZXIuY29tIiwibmFtZWlkIjoiY2JmNjA1ZDctMjUwZC00NjdhLTg5YzctNmZmY2UzOTllZmRlIiwidXNlcl90eXBlIjoiQ3VzdG9tZXIiLCJjdXN0b21lcl9pZCI6IjIiLCJyb2xlIjoiQ3VzdG9tZXIiLCJuYmYiOjE3OTU0MjE0OTYsImV4cCI6MTc5NTQyNTA5NiwiaWF0IjoxNzk1NDIxNDk2LCJpc3MiOiJDYXJnb0Zsb3dBcGkiLCJhdWQiOiJDYXJnb0Zsb3dDbGllbnQifQ.i7CCkxuOdFdaFQb_x-WTW9epYAO3OgJQlAcZVJzAGtM
 
 {
-  "customer_id": 1,
   "weight_type_id": 1,
   "weight": 700,
-  "destination_id": 2,
-  "pickup_id": 2
+  "destination_id": 1,
+  "pickup_id": 1
 }
 ###
 
@@ -79,13 +79,13 @@ Accept: application/json
 GET {{CargoFlow_HostAddress}}/api/notifications/unread-count
 ###
 
-POST {{CargoFlow_HostAddress}}/api/auth/register/company
+POST {{CargoFlow_HostAddress}}/api/auth/register/customer
 Content-Type: application/json
 
 {
-  "email": "test@company.com",
-  "password": "company@CargoFlow123",
-  "name": "test_company",
+  "email": "test@customer.com",
+  "password": "customer@CargoFlow123",
+  "name": "test_customer",
   "tax_id": "123456789"
 }
 
@@ -95,6 +95,14 @@ POST {{CargoFlow_HostAddress}}/api/auth/login
 Content-Type: application/json
 
 {
-  "email": "test@company.com",
-  "password": "company@CargoFlow123"
+  "email": "test@customer.com",
+  "password": "customer@CargoFlow123"
 }
+
+###
+GET {{CargoFlow_HostAddress}}/api/shipments/1/documents/3
+Content-Type: application/json
+
+###
+DELETE {{CargoFlow_HostAddress}}/api/shipments/1/documents/3
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6InRlc3RAY3VzdG9tZXIuY29tIiwibmFtZWlkIjoiY2JmNjA1ZDctMjUwZC00NjdhLTg5YzctNmZmY2UzOTllZmRlIiwidXNlcl90eXBlIjoiQ3VzdG9tZXIiLCJjdXN0b21lcl9pZCI6IjIiLCJyb2xlIjoiQ3VzdG9tZXIiLCJuYmYiOjE3OTU0NjQ5NjMsImV4cCI6MTc5NTQ2ODU2MywiaWF0IjoxNzk1NDY0OTYzLCJpc3MiOiJDYXJnb0Zsb3dBcGkiLCJhdWQiOiJDYXJnb0Zsb3dDbGllbnQifQ.yAielmZaV9Ec4Bh0OiMUo6a7pboHSlDAGOJ_QagfMKU

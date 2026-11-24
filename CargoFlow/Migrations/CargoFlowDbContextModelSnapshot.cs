@@ -354,6 +354,50 @@ namespace CargoFlow.Migrations
                         });
                 });
 
+            modelBuilder.Entity("CargoFlow.Domain.ShipmentDocument", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("DocumentType")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<long>("FileSize")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("OriginalFileName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("ShipmentId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("StorageKey")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("UploadedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("UploadedById")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ShipmentId");
+
+                    b.HasIndex("UploadedById");
+
+                    b.ToTable("ShipmentDocuments");
+                });
+
             modelBuilder.Entity("CargoFlow.Domain.ShipmentStatus", b =>
                 {
                     b.Property<int>("Id")
@@ -855,6 +899,25 @@ namespace CargoFlow.Migrations
                     b.Navigation("WeightType");
                 });
 
+            modelBuilder.Entity("CargoFlow.Domain.ShipmentDocument", b =>
+                {
+                    b.HasOne("CargoFlow.Domain.Shipment", "Shipment")
+                        .WithMany("Documents")
+                        .HasForeignKey("ShipmentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CargoFlow.Domain.UserProfile", "UploadedBy")
+                        .WithMany()
+                        .HasForeignKey("UploadedById")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Shipment");
+
+                    b.Navigation("UploadedBy");
+                });
+
             modelBuilder.Entity("CargoFlow.Domain.ShipmentStatusHistory", b =>
                 {
                     b.HasOne("CargoFlow.Domain.Shipment", "Shipment")
@@ -974,6 +1037,8 @@ namespace CargoFlow.Migrations
 
             modelBuilder.Entity("CargoFlow.Domain.Shipment", b =>
                 {
+                    b.Navigation("Documents");
+
                     b.Navigation("Notifications");
 
                     b.Navigation("Offers");

@@ -35,11 +35,11 @@ public record ShipmentDto(
 
 public record PaginatedShipmentsDto(
     [property: JsonPropertyName("items")]
-    List<ShipmentDto> Items, 
+    List<ShipmentDto> Items,
     [property: JsonPropertyName("page")]
-    int Page, 
+    int Page,
     [property: JsonPropertyName("page_size")]
-    int PageSize, 
+    int PageSize,
     [property: JsonPropertyName("total_count")]
     int TotalCount);
 
@@ -53,7 +53,7 @@ public record GetShipmentQuery(
     ShipmentSortBy SortBy,
     ShipmentSortDirection SortOrder);
 
-public class GetPaginatedShipmentsRequestDto 
+public class GetPaginatedShipmentsRequestDto
 {
     [FromQuery(Name = "customer_id")]
     public int? CustomerId { get; set; }
@@ -75,7 +75,7 @@ public class GetPaginatedShipmentsRequestDto
 
 
 public record CreateShipmentRequestDto(
-    int CustomerId,
+    // int CustomerId,
     int PickupId,
     int DestinationId,
     [Required]
@@ -88,9 +88,9 @@ public record ShipmentStatusTransitionRequest(
     [property: JsonPropertyName(name: "status_id")]
     int StatusId
     );
-    
-    public record ShipmentStatusHistoryDto(
-        [property: JsonPropertyName("status")]
-        string Status, 
-        [property: JsonPropertyName("date_time")]
+
+public record ShipmentStatusHistoryDto(
+    [property: JsonPropertyName("status")]
+        string Status,
+    [property: JsonPropertyName("date_time")]
         DateTime DateTime);

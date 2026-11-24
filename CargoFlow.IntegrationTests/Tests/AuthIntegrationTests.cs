@@ -58,7 +58,7 @@ public class AuthIntegrationTests(LocalSqlWebApplicationFactory<Program> factory
     [Fact]
     public async Task RegisterCompany_InvalidPassword_ShouldReturns400BadRequest()
     {
-        var response = await _client.PostAsJsonAsync("/api/auth/register/company", new RegisterCompanyRequestDto("test@test112.com", "ttt", "test test", "123456789"));
+        var response = await _client.PostAsJsonAsync("/api/auth/register/company", new RegisterCompanyRequestDto("test@test113.com", "ttt", "test test", "123456789"));
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         var result = await response.Content.ReadFromJsonAsync<ProblemDetails>();
         Assert.NotNull(result);

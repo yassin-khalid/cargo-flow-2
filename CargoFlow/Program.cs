@@ -21,6 +21,7 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 builder.Services.AddSingleton<IReferenceData, ReferenceData>();
 builder.Services.AddScoped<IRecipientsReferenceData, RecipientsReferenceData>();
 builder.Services.AddScoped<IOfferExpirationService, OfferExpirationService>();
+builder.Services.AddScoped<IFileStorageService, FileStorageService>();
 builder.Services.AddHostedService<OfferExpirationWorker>();
 builder.Services.AddSingleton<INotificationService, NotificationService>();
 builder.Services.AddValidation();
@@ -74,7 +75,8 @@ group
 group
     .MapGroup("/shipments")
     .MapShipmentEndpoints()
-    .MapOfferEndpoints();
+    .MapOfferEndpoints()
+    .MapShipmentDocumentEndpoint();
 
 group
     .MapGroup("/notifications")
