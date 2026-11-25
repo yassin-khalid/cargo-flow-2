@@ -366,8 +366,8 @@ namespace CargoFlow.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<DateTime?>("DeletionRequestedAtUtc")
-                        .HasColumnType("datetime2");
+                    b.Property<DateTimeOffset?>("DeletionRequestedAtUtc")
+                        .HasColumnType("datetimeoffset");
 
                     b.Property<int>("DeletionStatus")
                         .HasColumnType("int");

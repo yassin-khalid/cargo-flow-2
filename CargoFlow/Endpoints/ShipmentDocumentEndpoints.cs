@@ -124,7 +124,7 @@ public static class ShipmentDocumentEndpoints
                 }
                 catch (Exception cleanupException)
                 {
-                    logger.LogError(cleanupException, "Failed to cleanup uploaded document {DocumentId}", document.Id);)
+                    logger.LogError(cleanupException, "Failed to cleanup uploaded document {DocumentId}", document.Id);
                 }
             }
             return ex switch
@@ -286,6 +286,7 @@ public static class ShipmentDocumentEndpoints
         ClaimsPrincipal user,
         IRecipientsReferenceData recipientsReferenceData,
         IFileStorageService fileStorageService,
+        TimeProvider timeProvider,
         CancellationToken cancellationToken = default
     )
     {
@@ -337,9 +338,8 @@ public static class ShipmentDocumentEndpoints
 
         try
         {
-            // fileStorageService.DeleteShipmentDocument(document);
             document.DeletionStatus = DocumentDeletionStatus.PendingDeletion;
-            document.DeletionRequestedAtUtc = DateTime.UtcNow;
+            document.DeletionRequestedAtUtc = timeProvider.GetUtcNow();
             await db.SaveChangesAsync(cancellationToken);
             return TypedResults.NoContent();
         }

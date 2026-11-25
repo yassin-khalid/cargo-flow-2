@@ -27,5 +27,5 @@ public class ShipmentDocument
     public DateTime UploadedAt { get; set; }
 
     public DocumentDeletionStatus DeletionStatus { get; set; } = DocumentDeletionStatus.Active;
-    public DateTime? DeletionRequestedAtUtc { get; set; }
+    public DateTimeOffset? DeletionRequestedAtUtc { get; set; }
 }

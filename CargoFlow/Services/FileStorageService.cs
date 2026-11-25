@@ -66,7 +66,7 @@ public class FileStorageService(
             throw new InvalidOperationException($"File exceeds maximum allowed size of {_options.MaxFileSizeBytes} bytes");
         }
 
-        var originalFileName = file.FileName;
+        var originalFileName = Path.GetFileName(file.FileName);
         var extension = Path.GetExtension(originalFileName);
 
         if (string.IsNullOrWhiteSpace(extension)
