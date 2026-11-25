@@ -25,9 +25,11 @@ builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower);
 builder.Services.AddSingleton<IReferenceData, ReferenceData>();
 builder.Services.AddScoped<IRecipientsReferenceData, RecipientsReferenceData>();
+builder.Services.AddScoped<IPendingDocumentDeletionService, PendingDocumentDeletionService>();
 builder.Services.AddScoped<IOfferExpirationService, OfferExpirationService>();
 builder.Services.AddScoped<IFileStorageService, FileStorageService>();
 builder.Services.AddHostedService<OfferExpirationWorker>();
+builder.Services.AddHostedService<PendingDocumentDeletionWorker>();
 builder.Services.AddSingleton<INotificationService, NotificationService>();
 builder.Services.AddValidation();
 

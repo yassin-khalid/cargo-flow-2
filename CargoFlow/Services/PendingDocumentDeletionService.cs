@@ -9,9 +9,9 @@ public interface IPendingDocumentDeletionService
     Task DeletePendingDocuments(CancellationToken cancellationToken);
 }
 
-public class PendingDocmentDeletionService(
+public class PendingDocumentDeletionService(
     CargoFlowDbContext db,
-    ILogger<PendingDocmentDeletionService> logger,
+    ILogger<PendingDocumentDeletionService> logger,
     IFileStorageService fileStorageService
 ) : IPendingDocumentDeletionService
 {

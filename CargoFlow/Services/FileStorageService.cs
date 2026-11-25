@@ -9,7 +9,7 @@ public sealed class FileStorageOptions
     public string RootPath { get; init; } = "Uploads";
     public string ShipmentDocumentSubDirectory { get; init; } = "ShipmentDocuments";
     public long MaxFileSizeBytes { get; init; } = 10 * 1024 * 1024; // 10MB
-    public Dictionary<string, string[]> AllowedExtensions = new(StringComparer.OrdinalIgnoreCase)
+    public Dictionary<string, string[]> AllowedExtensions { get; init; } = new(StringComparer.OrdinalIgnoreCase)
     {
         [".jpg"] = ["image/jpg", "image/jpeg"],
         [".jpeg"] = ["image/jpeg"],
@@ -91,7 +91,7 @@ public class FileStorageService(
         var utcNow = timeProvider.GetUtcNow();
         var storageKey = $"{utcNow:yyyy/MM/dd}/{Guid.NewGuid()}{extension}";
         var fullPath = Path.GetFullPath(Path.Combine(targetFolder, storageKey.Replace('/', Path.DirectorySeparatorChar)));
-        EnsureInsideRoot(fullPath, rootPath, nameof(storageKey));
+        EnsureInsideRoot(fullPath, targetFolder, nameof(storageKey));
         Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
 
         try
@@ -181,7 +181,7 @@ public class FileStorageService(
 
         EnsureInsideRoot(
             fullPath,
-            baseRoot,
+            targetFolder,
             nameof(shipmentDocument.StorageKey)
         );
 
@@ -214,11 +214,11 @@ public class FileStorageService(
         var normalizedKey = shipmentDocument.StorageKey.Replace('/', Path.DirectorySeparatorChar);
         var fullPath = Path.GetFullPath(Path.Combine(targetFolder, normalizedKey));
 
-        EnsureInsideRoot(fullPath, baseRoot, nameof(shipmentDocument.StorageKey));
+        EnsureInsideRoot(fullPath, targetFolder, nameof(shipmentDocument.StorageKey));
 
         if (!File.Exists(fullPath))
         {
-            throw new Exception($"shipment #{shipmentDocument.ShipmentId} document #{shipmentDocument.Id} is no longer exists");
+            return;
         }
 
         try

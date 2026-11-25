@@ -2,8 +2,8 @@ using CargoFlow.Services;
 
 namespace CargoFlow.Workers;
 
-public class PendintDocumentDeletionWorker(
-    ILogger<PendintDocumentDeletionWorker> logger,
+public class PendingDocumentDeletionWorker(
+    ILogger<PendingDocumentDeletionWorker> logger,
     IServiceScopeFactory serviceScopeFactory
 ) : BackgroundService
 {
@@ -16,7 +16,7 @@ public class PendintDocumentDeletionWorker(
         {
             try
             {
-                var scope = serviceScopeFactory.CreateScope();
+                await using var scope = serviceScopeFactory.CreateAsyncScope();
                 var pendingDocumentDeletionService = scope.ServiceProvider
                     .GetRequiredService<IPendingDocumentDeletionService>();
                 await pendingDocumentDeletionService.DeletePendingDocuments(stoppingToken);
