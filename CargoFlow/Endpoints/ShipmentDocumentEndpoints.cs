@@ -64,13 +64,13 @@ public static class ShipmentDocumentEndpoints
             );
         }
 
-        var isAllEmpty = files.All(f => f.Length == 0);
-        if (isAllEmpty)
+        var isAnyEmpty = files.Any(f => f.Length == 0);
+        if (isAnyEmpty)
         {
             return TypedResults.Problem(
                 statusCode: StatusCodes.Status400BadRequest,
-                title: "Empty files",
-                detail: "Please upload at lease one file"
+                title: "Empty file",
+                detail: "Uploaded files contains an empty file"
             );
         }
 

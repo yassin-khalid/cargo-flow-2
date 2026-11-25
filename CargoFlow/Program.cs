@@ -30,6 +30,7 @@ builder.Services.AddScoped<IOfferExpirationService, OfferExpirationService>();
 builder.Services.AddScoped<IFileStorageService, FileStorageService>();
 builder.Services.AddHostedService<OfferExpirationWorker>();
 builder.Services.AddHostedService<PendingDocumentDeletionWorker>();
+builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<INotificationService, NotificationService>();
 builder.Services.AddValidation();
 
