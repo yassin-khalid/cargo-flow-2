@@ -31,10 +31,11 @@ public static class ShipmentDocumentEndpoints
         ClaimsPrincipal user,
         IRecipientsReferenceData recipientsReferenceData,
         IFileStorageService fileStorageService,
-        ILogger logger,
+        ILoggerFactory loggerFactory,
         CancellationToken cancellationToken = default
     )
     {
+        var logger = loggerFactory.CreateLogger(nameof(ShipmentDocumentEndpoints));
         var recipientId = recipientsReferenceData.GetRecipientId(user);
 
         if (recipientId is not int uploaderId)
