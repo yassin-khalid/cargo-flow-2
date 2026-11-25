@@ -9,11 +9,16 @@ public interface IOfferExpirationService
 {
     Task CheckAndMarkExpirationOfferAsync(CancellationToken stoppingToken);
 }
-public class OfferExpirationService(ILogger<OfferExpirationService> logger, CargoFlowDbContext db, IReferenceData referenceData) : IOfferExpirationService
+public class OfferExpirationService(
+    ILogger<OfferExpirationService> logger,
+    CargoFlowDbContext db,
+    IReferenceData referenceData,
+    TimeProvider timeProvider
+) : IOfferExpirationService
 {
     public async Task CheckAndMarkExpirationOfferAsync(CancellationToken stoppingToken)
     {
-        var now = DateTime.UtcNow;
+        var now = timeProvider.GetUtcNow();
         var expiredStateId = referenceData.GetOfferStateId(OfferStateName.Expired);
         var submittedStateId = referenceData.GetOfferStateId(OfferStateName.Submitted);
         var updatedRows =

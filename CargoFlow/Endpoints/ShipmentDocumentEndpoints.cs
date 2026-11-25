@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CargoFlow.Endpoints;
 
-public static class ShipmentDocumentEndpoints
+public static class ShipmentDocumentEndpoints()
 {
     public static RouteGroupBuilder MapShipmentDocumentEndpoint(this RouteGroupBuilder group)
     {
@@ -61,6 +61,15 @@ public static class ShipmentDocumentEndpoints
                 statusCode: StatusCodes.Status403Forbidden,
                 title: "Unauthorized Access",
                 detail: $"You're not authorized to access shipment #{id}"
+            );
+        }
+
+        if (files.Count == 0)
+        {
+            return TypedResults.Problem(
+                statusCode: StatusCodes.Status400BadRequest,
+                title: "No file found",
+                detail: "No shipment document file found"
             );
         }
 
@@ -114,7 +123,6 @@ public static class ShipmentDocumentEndpoints
                 }
                 catch
                 {
-
                 }
             }
             return ex switch
@@ -245,15 +253,27 @@ public static class ShipmentDocumentEndpoints
             );
         }
 
-        var storedFile = await fileStorageService
-            .OpenShipmentDocumentAsync(shipmentDocument);
+        try
+        {
 
-        return TypedResults.File(
-            storedFile.Stream,
-            storedFile.ContentType,
-            storedFile.FileDownloadName,
-            enableRangeProcessing: true
-        );
+            var storedFile = await fileStorageService
+                .OpenShipmentDocumentAsync(shipmentDocument);
+
+            return TypedResults.File(
+                storedFile.Stream,
+                storedFile.ContentType,
+                storedFile.FileDownloadName,
+                enableRangeProcessing: true
+            );
+        }
+        catch (Exception ex) when (ex is FileNotFoundException)
+        {
+            return TypedResults.Problem(
+                statusCode: StatusCodes.Status500InternalServerError,
+                title: "Unable to open file",
+                detail: $"Couldn't open shipment document #{shipmentDocument.Id}"
+            );
+        }
 
     }
 

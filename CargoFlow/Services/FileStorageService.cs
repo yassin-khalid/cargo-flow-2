@@ -187,7 +187,7 @@ public class FileStorageService(
 
         if (!File.Exists(fullPath))
         {
-            throw new Exception($"shipment #{shipmentDocument.ShipmentId} document #{shipmentDocument.Id} is no longer exists");
+            throw new FileNotFoundException($"shipment #{shipmentDocument.ShipmentId} document #{shipmentDocument.Id} is no longer exists");
         }
 
         var stream = new FileStream(
