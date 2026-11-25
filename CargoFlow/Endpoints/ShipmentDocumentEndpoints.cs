@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using CargoFlow.Data;
 using CargoFlow.Domain;
+using CargoFlow.Domain.Enums;
 using CargoFlow.Dtos;
 using CargoFlow.Helpers;
 using CargoFlow.Services;
@@ -64,7 +65,7 @@ public static class ShipmentDocumentEndpoints
         }
 
         var isAllEmpty = files.All(f => f.Length == 0);
-        if (files.Count == 0)
+        if (isAllEmpty)
         {
             return TypedResults.Problem(
                 statusCode: StatusCodes.Status400BadRequest,
@@ -95,7 +96,6 @@ public static class ShipmentDocumentEndpoints
                     d.Id,
                     d.ShipmentId,
                     d.OriginalFileName,
-                    d.StorageKey,
                     d.ContentType,
                     d.FileSize,
                     d.UploadedById,
@@ -104,7 +104,7 @@ public static class ShipmentDocumentEndpoints
                 .ToList()
             );
         }
-        catch
+        catch (Exception ex)
         {
             foreach (var document in uploadedDocuments)
             {
@@ -117,11 +117,19 @@ public static class ShipmentDocumentEndpoints
 
                 }
             }
-            return TypedResults.Problem(
-                statusCode: StatusCodes.Status500InternalServerError,
-                title: "Error while trying to upload shipment documents",
-                detail: "An unexpected error occured while saving shipment documents"
-            );
+            return ex switch
+            {
+                InvalidOperationException or ArgumentException => TypedResults.Problem(
+                    statusCode: StatusCodes.Status400BadRequest,
+                    title: "Bad Request",
+                    detail: ex.Message
+                ),
+                _ => TypedResults.Problem(
+                    statusCode: StatusCodes.Status500InternalServerError,
+                    title: "Error while trying to upload shipment documents",
+                    detail: "An unexpected error occured while saving shipment documents"
+                )
+            };
         }
     }
 
@@ -168,11 +176,11 @@ public static class ShipmentDocumentEndpoints
 
 
         return TypedResults.Ok<List<ShipmentDocumentDto>>([..shipment.Documents
+            .Where(d => d.DeletionStatus == DocumentDeletionStatus.Active) // Only active documents
             .Select(d => new ShipmentDocumentDto(
                 d.Id,
                 d.ShipmentId,
                 d.OriginalFileName,
-                d.StorageKey,
                 d.ContentType,
                 d.FileSize,
                 d.UploadedById,
@@ -224,7 +232,9 @@ public static class ShipmentDocumentEndpoints
         }
 
         var shipmentDocument = shipment.Documents
-            .FirstOrDefault(d => d.Id == documentId);
+            .FirstOrDefault(d => d.Id == documentId
+                && d.DeletionStatus == DocumentDeletionStatus.Active
+            );
 
         if (shipmentDocument == null)
         {
@@ -289,7 +299,11 @@ public static class ShipmentDocumentEndpoints
             );
         }
 
-        var document = shipment.Documents.FirstOrDefault(d => d.Id == documentId);
+        var document = shipment.Documents
+            .FirstOrDefault(d => d.Id == documentId
+                && d.DeletionStatus == DocumentDeletionStatus.Active
+            );
+
         if (document is null)
         {
             return TypedResults.Problem(
@@ -301,10 +315,10 @@ public static class ShipmentDocumentEndpoints
 
         try
         {
-            fileStorageService.DeleteShipmentDocument(document);
-            db.ShipmentDocuments.Remove(document);
+            // fileStorageService.DeleteShipmentDocument(document);
+            document.DeletionStatus = DocumentDeletionStatus.PendingDeletion;
+            document.DeletionRequestedAtUtc = DateTime.UtcNow;
             await db.SaveChangesAsync(cancellationToken);
-
             return TypedResults.NoContent();
         }
         catch

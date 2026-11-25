@@ -15,7 +15,7 @@ public sealed class FileStorageOptions
         [".jpeg"] = ["image/jpeg"],
         [".webp"] = ["image/webp"],
         [".png"] = ["image/png"],
-        [".pdf"] = ["applicaion/pdf"],
+        [".pdf"] = ["application/pdf"],
         [".csv"] = ["application/csv", "text/csv", "text/plain"],
         [".xlsx"] = ["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"]
     };
@@ -116,7 +116,7 @@ public class FileStorageService(
         return new()
         {
             OriginalFileName = originalFileName,
-            ContentType = file.ContentType,
+            ContentType = contentType,
             DocumentType = extension,
             FileSize = file.Length,
             ShipmentId = shipmentId,
@@ -211,10 +211,10 @@ public class FileStorageService(
         var safeSubDirectory = SanitizeRelativePath(_options.ShipmentDocumentSubDirectory);
         var targetFolder = Path.GetFullPath(Path.Combine(baseRoot, safeSubDirectory));
 
-        EnsureInsideRoot(targetFolder, baseRoot, nameof(shipmentDocument.StorageKey));
-
         var normalizedKey = shipmentDocument.StorageKey.Replace('/', Path.DirectorySeparatorChar);
         var fullPath = Path.GetFullPath(Path.Combine(targetFolder, normalizedKey));
+
+        EnsureInsideRoot(fullPath, baseRoot, nameof(shipmentDocument.StorageKey));
 
         if (!File.Exists(fullPath))
         {

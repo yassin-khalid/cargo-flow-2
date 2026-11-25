@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using CargoFlow.Domain.Enums;
 
 namespace CargoFlow.Domain;
 
@@ -25,4 +26,6 @@ public class ShipmentDocument
 
     public DateTime UploadedAt { get; set; }
 
+    public DocumentDeletionStatus DeletionStatus { get; set; } = DocumentDeletionStatus.Active;
+    public DateTime? DeletionRequestedAtUtc { get; set; }
 }
