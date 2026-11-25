@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CargoFlow.Endpoints;
 
-public static class ShipmentDocumentEndpoints()
+public static class ShipmentDocumentEndpoints
 {
     public static RouteGroupBuilder MapShipmentDocumentEndpoint(this RouteGroupBuilder group)
     {
@@ -31,6 +31,7 @@ public static class ShipmentDocumentEndpoints()
         ClaimsPrincipal user,
         IRecipientsReferenceData recipientsReferenceData,
         IFileStorageService fileStorageService,
+        ILogger logger,
         CancellationToken cancellationToken = default
     )
     {
@@ -121,8 +122,9 @@ public static class ShipmentDocumentEndpoints()
                 {
                     fileStorageService.DeleteShipmentDocument(document);
                 }
-                catch
+                catch (Exception cleanupException)
                 {
+                    logger.LogError(cleanupException, "Failed to cleanup uploaded document {DocumentId}", document.Id);)
                 }
             }
             return ex switch
@@ -269,7 +271,7 @@ public static class ShipmentDocumentEndpoints()
         catch (Exception ex) when (ex is FileNotFoundException)
         {
             return TypedResults.Problem(
-                statusCode: StatusCodes.Status500InternalServerError,
+                statusCode: StatusCodes.Status404NotFound,
                 title: "Unable to open file",
                 detail: $"Couldn't open shipment document #{shipmentDocument.Id}"
             );
