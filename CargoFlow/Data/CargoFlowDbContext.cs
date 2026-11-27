@@ -5,7 +5,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CargoFlow.Data;
 
-public class CargoFlowDbContext(DbContextOptions<CargoFlowDbContext> options) : IdentityDbContext<ApplicationUser>(options)
+public class CargoFlowDbContext(DbContextOptions<CargoFlowDbContext> options)
+    : IdentityDbContext<ApplicationUser>(options)
 {
     public DbSet<Address> Addresses => Set<Address>();
     public DbSet<Company> Companies => Set<Company>();
@@ -20,6 +21,7 @@ public class CargoFlowDbContext(DbContextOptions<CargoFlowDbContext> options) : 
     public DbSet<ShipmentStatusHistory> ShipmentStatusHistories => Set<ShipmentStatusHistory>();
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<ShipmentDocument> ShipmentDocuments => Set<ShipmentDocument>();
+    public DbSet<ShipmentTrackingEvent> ShipmentTrackingEvents => Set<ShipmentTrackingEvent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -39,5 +41,6 @@ public class CargoFlowDbContext(DbContextOptions<CargoFlowDbContext> options) : 
         modelBuilder.ApplyConfiguration(new NotificationConfiguration());
         modelBuilder.ApplyConfiguration(new UserProfileConfiguration());
         modelBuilder.ApplyConfiguration(new ShipmentDocumentConfiguration());
+        modelBuilder.ApplyConfiguration(new ShipmentTrackingEventConfiguration());
     }
 }

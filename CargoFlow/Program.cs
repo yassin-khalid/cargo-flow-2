@@ -14,15 +14,17 @@ using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder();
 builder.Configuration.AddUserSecrets<Program>(optional: true);
-builder.Services
-    .AddOptions<FileStorageOptions>()
+builder
+    .Services.AddOptions<FileStorageOptions>()
     .Bind(builder.Configuration.GetSection(FileStorageOptions.SectionName))
     .ValidateDataAnnotations()
     .ValidateOnStart();
 builder.Services.AddDbContext<CargoFlowDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("CargoFlow")));
+    options.UseSqlServer(builder.Configuration.GetConnectionString("CargoFlow"))
+);
 builder.Services.ConfigureHttpJsonOptions(options =>
-    options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower);
+    options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
+);
 builder.Services.AddSingleton<IReferenceData, ReferenceData>();
 builder.Services.AddScoped<IRecipientsReferenceData, RecipientsReferenceData>();
 builder.Services.AddScoped<IPendingDocumentDeletionService, PendingDocumentDeletionService>();
@@ -34,23 +36,24 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<INotificationService, NotificationService>();
 builder.Services.AddValidation();
 
-builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
+builder
+    .Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
     {
         options.User.RequireUniqueEmail = true;
-    }
-)
+    })
     .AddEntityFrameworkStores<CargoFlowDbContext>()
     .AddDefaultTokenProviders();
 
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
 var secretKey = Encoding.UTF8.GetBytes(jwtSettings["Secret"]!);
 
-builder.Services.AddAuthentication(options =>
+builder
+    .Services.AddAuthentication(options =>
     {
         options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
         options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
     })
-.AddJwtBearer(options =>
+    .AddJwtBearer(options =>
     {
         options.TokenValidationParameters = new TokenValidationParameters()
         {
@@ -61,7 +64,7 @@ builder.Services.AddAuthentication(options =>
             ValidAudience = jwtSettings["Audience"],
             ValidIssuer = jwtSettings["Issuer"],
             IssuerSigningKey = new SymmetricSecurityKey(secretKey),
-            ClockSkew = TimeSpan.Zero
+            ClockSkew = TimeSpan.Zero,
         };
     });
 
@@ -69,46 +72,40 @@ builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
-var group = app
-    .MapGroup("/api")
-    .RequireAuthorization();
+var group = app.MapGroup("/api").RequireAuthorization();
 
-group
-    .MapGroup("/weight-types")
-    .MapWeightTypeEndpoints();
-group
-    .MapGroup("/customers")
-    .MapCustomerEndpoints();
+group.MapGroup("/weight-types").MapWeightTypeEndpoints();
+group.MapGroup("/customers").MapCustomerEndpoints();
 
 group
     .MapGroup("/shipments")
     .MapShipmentEndpoints()
     .MapOfferEndpoints()
-    .MapShipmentDocumentEndpoint();
+    .MapShipmentDocumentEndpoint()
+    .MapTrackingEventEndpoints();
 
-group
-    .MapGroup("/notifications")
-    .MapNotificationsEndpoints();
+group.MapGroup("/notifications").MapNotificationsEndpoints();
 
-group.MapGroup("/auth")
-    .MapAuthEndpoints()
-    .AllowAnonymous();
+group.MapGroup("/auth").MapAuthEndpoints().AllowAnonymous();
 
-
-app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
-{
-    var exception = context.Features.Get<IExceptionHandlerFeature>()?.Error;
-    if (exception is InvalidOperationException)
+app.UseExceptionHandler(errorApp =>
+    errorApp.Run(async context =>
     {
-        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
-        await context.Response.WriteAsJsonAsync(new
+        var exception = context.Features.Get<IExceptionHandlerFeature>()?.Error;
+        if (exception is InvalidOperationException)
         {
-            statusCode = StatusCodes.Status500InternalServerError,
-            title = "Server Configuration Error",
-            detail = exception.Message
-        });
-    }
-}));
+            context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+            await context.Response.WriteAsJsonAsync(
+                new
+                {
+                    statusCode = StatusCodes.Status500InternalServerError,
+                    title = "Server Configuration Error",
+                    detail = exception.Message,
+                }
+            );
+        }
+    })
+);
 
 app.UseAuthentication();
 app.UseAuthorization();
@@ -126,7 +123,10 @@ using (var scope = app.Services.CreateScope())
     catch (Exception ex)
     {
         var logger = serviceProvider.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "An error occur while migrating database or seeding roles in the database");
+        logger.LogError(
+            ex,
+            "An error occur while migrating database or seeding roles in the database"
+        );
         throw;
     }
 }

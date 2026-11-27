@@ -495,6 +495,51 @@ namespace CargoFlow.Migrations
                     b.ToTable("ShipmentStatusHistories");
                 });
 
+            modelBuilder.Entity("CargoFlow.Domain.ShipmentTrackingEvent", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("EventType")
+                        .HasColumnType("int");
+
+                    b.Property<decimal?>("Latitude")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Location")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal?>("Longitude")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTimeOffset>("OccuredAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("ShipmentId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("ShipmentId");
+
+                    b.ToTable("ShipmentTrackingEvents");
+                });
+
             modelBuilder.Entity("CargoFlow.Domain.UserProfile", b =>
                 {
                     b.Property<int>("Id")
@@ -943,6 +988,25 @@ namespace CargoFlow.Migrations
                     b.Navigation("ShipmentStatus");
                 });
 
+            modelBuilder.Entity("CargoFlow.Domain.ShipmentTrackingEvent", b =>
+                {
+                    b.HasOne("CargoFlow.Domain.UserProfile", "CreatedByUser")
+                        .WithMany("ShipmentTrackingEvents")
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CargoFlow.Domain.Shipment", "Shipment")
+                        .WithMany("ShipmentTrackingEvents")
+                        .HasForeignKey("ShipmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CreatedByUser");
+
+                    b.Navigation("Shipment");
+                });
+
             modelBuilder.Entity("CargoFlow.Domain.UserProfile", b =>
                 {
                     b.HasOne("CargoFlow.Domain.ApplicationUser", "User")
@@ -1050,6 +1114,8 @@ namespace CargoFlow.Migrations
                     b.Navigation("Offers");
 
                     b.Navigation("ShipmentStatusHistories");
+
+                    b.Navigation("ShipmentTrackingEvents");
                 });
 
             modelBuilder.Entity("CargoFlow.Domain.ShipmentStatus", b =>
@@ -1062,6 +1128,8 @@ namespace CargoFlow.Migrations
             modelBuilder.Entity("CargoFlow.Domain.UserProfile", b =>
                 {
                     b.Navigation("Notifications");
+
+                    b.Navigation("ShipmentTrackingEvents");
                 });
 
             modelBuilder.Entity("CargoFlow.Domain.WeightType", b =>

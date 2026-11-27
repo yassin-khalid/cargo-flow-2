@@ -6,22 +6,25 @@ public class Shipment
 {
     public int Id { get; set; }
     public int CustomerId { get; set; }
-    public Customer Customer { get; set; }
+    public Customer Customer { get; set; } = null!;
     public int PickupId { get; set; }
-    public Address Pickup { get; set; }
+    public Address Pickup { get; set; } = null!;
     public int DestinationId { get; set; }
-    public Address Destination { get; set; }
+    public Address Destination { get; set; } = null!;
+
     [Required]
     [Range(1, double.MaxValue, ErrorMessage = "Weight must be greater than zero")]
     public decimal Weight { get; set; }
     public int WeightTypeId { get; set; }
-    public WeightType WeightType { get; set; }
+    public WeightType WeightType { get; set; } = null!;
     public int ShipmentStatusId { get; set; }
-    public ShipmentStatus ShipmentStatus { get; set; }
+    public ShipmentStatus ShipmentStatus { get; set; } = null!;
     public List<Offer> Offers { get; set; } = [];
     public List<ShipmentStatusHistory> ShipmentStatusHistories { get; set; } = [];
     public List<Notification> Notifications { get; set; } = [];
     public List<ShipmentDocument> Documents { get; set; } = [];
+    public List<ShipmentTrackingEvent> ShipmentTrackingEvents { get; set; } = [];
+
     [Timestamp]
     public byte[] RowVersion { get; set; }
 }
