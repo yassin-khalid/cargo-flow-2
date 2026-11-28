@@ -511,8 +511,8 @@ namespace CargoFlow.Migrations
 
                     b.Property<string>("Description")
                         .IsRequired()
-                        .HasMaxLength(25)
-                        .HasColumnType("nvarchar(25)");
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
 
                     b.Property<int>("EventType")
                         .HasColumnType("int");
@@ -522,7 +522,8 @@ namespace CargoFlow.Migrations
                         .HasColumnType("decimal(9,6)");
 
                     b.Property<string>("Location")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
 
                     b.Property<decimal?>("Longitude")
                         .HasPrecision(9, 6)

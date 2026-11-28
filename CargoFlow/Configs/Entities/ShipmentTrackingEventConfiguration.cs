@@ -11,7 +11,8 @@ public class ShipmentTrackingEventConfiguration : IEntityTypeConfiguration<Shipm
         builder.Property(e => e.Latitude).HasPrecision(9, 6);
         builder.Property(e => e.Longitude).HasPrecision(9, 6);
 
-        builder.Property(e => e.Description).HasMaxLength(25);
+        builder.Property(e => e.Description).HasMaxLength(250);
+        builder.Property(e => e.Location).HasMaxLength(250);
 
         builder
             .HasOne(e => e.CreatedByUser)

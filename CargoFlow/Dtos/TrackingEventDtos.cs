@@ -24,25 +24,35 @@ public record ShipmentTrackingEventDto(
     nameof(Longitude),
     ErrorMessage = "Both Latitude and Longitude must be provided together, or both omitted"
 )]
-public record ShipmentTrackingEventRequestDto(
+public sealed record ShipmentTrackingEventRequestDto
+{
     [Required]
     [MaxLength(25, ErrorMessage = "Description must have 25 characters maximum")]
-    [property: JsonPropertyName("description")]
-        string Description,
-    [property: JsonPropertyName("location")] string? Location,
-    [property: JsonPropertyName("latitude")]
+    [JsonPropertyName("description")]
+    [JsonRequired]
+    public required string Description { get; init; }
+
+    [JsonPropertyName("location")]
+    public string? Location { get; init; }
+
+    [JsonPropertyName("latitude")]
     [Range(-90, 90, ErrorMessage = "Latitude must be a decimal value between -90 and 90")]
-        decimal? Latitude,
-    [property: JsonPropertyName("longitude")]
+    public decimal? Latitude { get; init; }
+
+    [JsonPropertyName("longitude")]
     [Range(-180, 180, ErrorMessage = "Longitude must be a decimal value between -180 and 180")]
-        decimal? Longitude,
+    public decimal? Longitude { get; init; }
+
     [Required]
-    [property: JsonPropertyName("event_type")]
-    [property: JsonConverter(typeof(ShipmentEventTypeConverter))]
-        ShipmentEventType EventType,
+    [JsonPropertyName("event_type")]
+    [JsonConverter(typeof(ShipmentEventTypeConverter))]
+    [JsonRequired]
+    public required ShipmentEventType EventType { get; init; }
+
     [Required]
-    [property: JsonPropertyName("occurred_at")]
-    [property: JsonConverter(typeof(StrictUtcDateTimeOffsetConverter))]
+    [JsonPropertyName("occurred_at")]
+    [JsonConverter(typeof(StrictUtcDateTimeOffsetConverter))]
     [LessThanNow(ErrorMessage = "DateTime must be less than now")]
-        DateTimeOffset OccurredAtUtc
-);
+    [JsonRequired]
+    public required DateTimeOffset OccurredAtUtc { get; init; }
+};

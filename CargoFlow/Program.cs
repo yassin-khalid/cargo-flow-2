@@ -23,8 +23,10 @@ builder.Services.AddDbContext<CargoFlowDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("CargoFlow"))
 );
 builder.Services.ConfigureHttpJsonOptions(options =>
-    options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
-);
+{
+    options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower;
+    options.SerializerOptions.RespectRequiredConstructorParameters = true;
+});
 builder.Services.AddSingleton<IReferenceData, ReferenceData>();
 builder.Services.AddScoped<IRecipientsReferenceData, RecipientsReferenceData>();
 builder.Services.AddScoped<IPendingDocumentDeletionService, PendingDocumentDeletionService>();

@@ -16,6 +16,9 @@ public static class TrackingEventEndpoints
             .MapPost("/{shipmentId:int}/tracking-events", CreateTrackingEvent)
             .RequireAuthorization(policy => policy.RequireRole("Company"));
         group.MapGet("/{shipmentId:int}/tracking-events", GetShipmentTrackingEvents);
+        group
+            .MapGet("/{shipmentId:int}/tracking-events/{id:int}", GetShipmentTrackingEvent)
+            .WithName("GetShipmentTrackingEventById");
         return group;
     }
 
@@ -144,7 +147,7 @@ public static class TrackingEventEndpoints
                 title: "User Type Not Found",
                 detail: "Couldn't detect authenticated user type"
             ),
-            _ => TypedResults.Ok(
+            "Customer" or "Company" => TypedResults.Ok(
                 shipment
                     .ShipmentTrackingEvents.OrderBy(s => s.OccurredAtUtc)
                     .Select(s => new ShipmentTrackingEventDto(
@@ -160,6 +163,91 @@ public static class TrackingEventEndpoints
                         s.CreatedByUserId
                     ))
                     .ToList()
+            ),
+            _ => TypedResults.Problem(
+                statusCode: StatusCodes.Status403Forbidden,
+                title: "Invalid User Type",
+                detail: "User type is not recognized"
+            ),
+        };
+    }
+
+    private static async Task<
+        Results<Ok<ShipmentTrackingEventDto>, ProblemHttpResult>
+    > GetShipmentTrackingEvent(
+        int id,
+        int shipmentId,
+        CargoFlowDbContext db,
+        RecipientsReferenceData recipientsReferenceData,
+        ClaimsPrincipal user
+    )
+    {
+        var userId = recipientsReferenceData.GetRecipientId(user);
+
+        if (userId is null)
+        {
+            return TypedResults.Problem(
+                statusCode: StatusCodes.Status401Unauthorized,
+                title: "User profile not found",
+                detail: "Unable to find user profile assosiated with this user"
+            );
+        }
+
+        var shipment = await db
+            .Shipments.Include(s => s.Offers)
+            .Include(s => s.ShipmentTrackingEvents)
+            .FirstOrDefaultAsync(s => s.Id == shipmentId);
+        if (shipment is null)
+        {
+            return TypedResults.Problem(
+                statusCode: StatusCodes.Status404NotFound,
+                title: "Shipment not found",
+                detail: $"Couldn't find shipment #{shipmentId}"
+            );
+        }
+
+        var awardedOffer = shipment.Offers.FirstOrDefault(o => o.HasWon);
+        var userType = user.FindFirst("user_type")?.Value;
+
+        return userType switch
+        {
+            "Customer" when shipment.CustomerId != userId => TypedResults.Problem(
+                statusCode: StatusCodes.Status403Forbidden,
+                title: "Unauthorized access",
+                detail: $"You're not authorized to get tracking events of shipment #{shipmentId}, it belongs to another user"
+            ),
+            "Company" when awardedOffer is null || awardedOffer.CompanyId != userId =>
+                TypedResults.Problem(
+                    statusCode: StatusCodes.Status403Forbidden,
+                    title: "Unauthorized Access",
+                    detail: $"You're not authorized to create event in shipment #{shipmentId}"
+                ),
+            null => TypedResults.Problem(
+                statusCode: StatusCodes.Status401Unauthorized,
+                title: "User Type Not Found",
+                detail: "Couldn't detect authenticated user type"
+            ),
+            "Customer" or "Company" => TypedResults.Ok(
+                shipment
+                    .ShipmentTrackingEvents.Where(e => e.Id == id)
+                    .Select(s => new ShipmentTrackingEventDto(
+                        s.Id,
+                        s.ShipmentId,
+                        s.EventType,
+                        s.Description,
+                        s.Location,
+                        s.Latitude,
+                        s.Longitude,
+                        s.OccurredAtUtc,
+                        s.CreatedAtUtc,
+                        s.CreatedByUserId
+                    ))
+                    .FirstOrDefault()
+            ),
+            _ => TypedResults.Problem(
+                statusCode: StatusCodes.Status403Forbidden,
+                title: "Invalid User Type",
+                detail: "User type is not recognized"
             ),
         };
     }

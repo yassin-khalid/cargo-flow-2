@@ -12,8 +12,10 @@ public class ShipmentTrackingEvent
     public Shipment Shipment { get; set; } = null!;
 
     [Required]
-    [MaxLength(25, ErrorMessage = "Description must have 25 characters maximum")]
+    [MaxLength(250, ErrorMessage = "Description must have 250 characters maximum")]
     public string Description { get; set; } = null!;
+
+    [MaxLength(250, ErrorMessage = "Location must have 250 characters maximum")]
     public string? Location { get; set; }
 
     [Range(-180, 180, ErrorMessage = "Longitude should be within -180 to 180")]
