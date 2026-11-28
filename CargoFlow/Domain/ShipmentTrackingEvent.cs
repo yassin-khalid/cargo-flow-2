@@ -12,6 +12,7 @@ public class ShipmentTrackingEvent
     public Shipment Shipment { get; set; } = null!;
 
     [Required]
+    [MaxLength(25, ErrorMessage = "Description must have 25 characters maximum")]
     public string Description { get; set; } = null!;
     public string? Location { get; set; }
 
@@ -21,7 +22,7 @@ public class ShipmentTrackingEvent
     [Range(-90, 90, ErrorMessage = "Latitude should be within -90 to 90")]
     public decimal? Latitude { get; set; }
 
-    public DateTimeOffset OccuredAtUtc { get; set; }
+    public DateTimeOffset OccurredAtUtc { get; set; }
     public DateTimeOffset CreatedAtUtc { get; set; }
 
     public int CreatedByUserId { get; set; }

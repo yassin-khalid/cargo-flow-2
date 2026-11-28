@@ -8,6 +8,11 @@ public class ShipmentTrackingEventConfiguration : IEntityTypeConfiguration<Shipm
 {
     public void Configure(EntityTypeBuilder<ShipmentTrackingEvent> builder)
     {
+        builder.Property(e => e.Latitude).HasPrecision(9, 6);
+        builder.Property(e => e.Longitude).HasPrecision(9, 6);
+
+        builder.Property(e => e.Description).HasMaxLength(25);
+
         builder
             .HasOne(e => e.CreatedByUser)
             .WithMany(p => p.ShipmentTrackingEvents)

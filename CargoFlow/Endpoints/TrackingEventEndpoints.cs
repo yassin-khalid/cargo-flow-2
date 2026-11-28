@@ -14,12 +14,14 @@ public static class TrackingEventEndpoints
     {
         group
             .MapPost("/{shipmentId:int}/tracking-events", CreateTrackingEvent)
-            .RequireAuthorization(policy => policy.RequireRole("Comapny"));
+            .RequireAuthorization(policy => policy.RequireRole("Company"));
         group.MapGet("/{shipmentId:int}/tracking-events", GetShipmentTrackingEvents);
         return group;
     }
 
-    private static async Task<Results<Created, ProblemHttpResult>> CreateTrackingEvent(
+    private static async Task<
+        Results<CreatedAtRoute<ShipmentTrackingEvent>, ProblemHttpResult>
+    > CreateTrackingEvent(
         CargoFlowDbContext db,
         ShipmentTrackingEventRequestDto request,
         int shipmentId,
@@ -74,13 +76,17 @@ public static class TrackingEventEndpoints
             Longitude = request.Longitude,
             CreatedAtUtc = now,
             CreatedByUserId = userId,
-            OccuredAtUtc = request.OccuredAtUtc,
+            OccurredAtUtc = request.OccurredAtUtc,
         };
 
         db.ShipmentTrackingEvents.Add(trackingEvent);
         await db.SaveChangesAsync(cancellationToken);
 
-        return TypedResults.Created();
+        return TypedResults.CreatedAtRoute(
+            routeName: "GetShipmentTrackingEventById",
+            routeValues: new { ShipmentId = shipmentId, TrackingEventId = trackingEvent.Id },
+            value: trackingEvent
+        );
     }
 
     private static async Task<
@@ -103,8 +109,6 @@ public static class TrackingEventEndpoints
             );
         }
 
-        var userType = user.FindFirst("user_type")?.Value;
-
         var shipment = await db
             .Shipments.Include(s => s.ShipmentTrackingEvents)
             .Include(s => s.Offers)
@@ -119,39 +123,44 @@ public static class TrackingEventEndpoints
             );
         }
 
-        if (userType is "Customer" && shipment.CustomerId != userId)
+        var awardedOffer = shipment.Offers.FirstOrDefault(o => o.HasWon);
+        var userType = user.FindFirst("user_type")?.Value;
+
+        return userType switch
         {
-            return TypedResults.Problem(
+            "Customer" when shipment.CustomerId != userId => TypedResults.Problem(
                 statusCode: StatusCodes.Status403Forbidden,
                 title: "Unauthorized access",
                 detail: $"You're not authorized to get tracking events of shipment #{shipmentId}, it belongs to another user"
-            );
-        }
-
-        var awardedOffer = shipment.Offers.FirstOrDefault(o => o.HasWon);
-        if (awardedOffer is null || awardedOffer.CompanyId != userId)
-        {
-            return TypedResults.Problem(
-                statusCode: StatusCodes.Status403Forbidden,
-                title: "Unauthorized Access",
-                detail: $"You're not authorized to create event in shipment #{shipmentId}"
-            );
-        }
-
-        return TypedResults.Ok(
-            shipment
-                .ShipmentTrackingEvents.Select(s => new ShipmentTrackingEventDto(
-                    s.Id,
-                    s.ShipmentId,
-                    s.Description,
-                    s.Location,
-                    s.Latitude,
-                    s.Longitude,
-                    s.OccuredAtUtc,
-                    s.CreatedAtUtc,
-                    s.CreatedByUserId
-                ))
-                .ToList()
-        );
+            ),
+            "Company" when awardedOffer is null || awardedOffer.CompanyId != userId =>
+                TypedResults.Problem(
+                    statusCode: StatusCodes.Status403Forbidden,
+                    title: "Unauthorized Access",
+                    detail: $"You're not authorized to create event in shipment #{shipmentId}"
+                ),
+            null => TypedResults.Problem(
+                statusCode: StatusCodes.Status401Unauthorized,
+                title: "User Type Not Found",
+                detail: "Couldn't detect authenticated user type"
+            ),
+            _ => TypedResults.Ok(
+                shipment
+                    .ShipmentTrackingEvents.OrderBy(s => s.OccurredAtUtc)
+                    .Select(s => new ShipmentTrackingEventDto(
+                        s.Id,
+                        s.ShipmentId,
+                        s.EventType,
+                        s.Description,
+                        s.Location,
+                        s.Latitude,
+                        s.Longitude,
+                        s.OccurredAtUtc,
+                        s.CreatedAtUtc,
+                        s.CreatedByUserId
+                    ))
+                    .ToList()
+            ),
+        };
     }
 }
